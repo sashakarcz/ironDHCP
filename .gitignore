@@ -1,0 +1,32 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go build cache
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Configuration (development)
+*.local.yaml
+.env
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
