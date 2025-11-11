@@ -157,19 +157,6 @@ func main() {
 		}
 	}
 
-	// Start GitOps poller (if enabled)
-	if gitPoller != nil {
-		if err := gitPoller.Start(ctx); err != nil {
-			logger.Fatal().Err(err).Msg("Failed to start GitOps poller")
-		}
-	}
-
-	// Start lease expiry worker
-	expiryWorker = dhcp.NewExpiryWorker(store, 5*time.Minute)
-	if err := expiryWorker.Start(ctx); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start lease expiry worker")
-	}
-
 	// Create and start API server (if enabled)
 	var apiServer *api.Server
 	if cfg.Observability.WebEnabled {
@@ -184,6 +171,7 @@ func main() {
 		}
 
 		// Set GitOps reload function to update API server config
+		// This must be set BEFORE starting the poller so the initial sync updates the API server
 		if syncService != nil {
 			syncService.SetReloadFunc(func(newCfg *config.Config) error {
 				apiServer.UpdateConfig(newCfg)
@@ -191,6 +179,20 @@ func main() {
 				return nil
 			})
 		}
+	}
+
+	// Start GitOps poller (if enabled)
+	// This is started AFTER setting the reload callback so initial sync updates API server
+	if gitPoller != nil {
+		if err := gitPoller.Start(ctx); err != nil {
+			logger.Fatal().Err(err).Msg("Failed to start GitOps poller")
+		}
+	}
+
+	// Start lease expiry worker
+	expiryWorker = dhcp.NewExpiryWorker(store, 5*time.Minute)
+	if err := expiryWorker.Start(ctx); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to start lease expiry worker")
 	}
 
 	// Wait for shutdown signal
