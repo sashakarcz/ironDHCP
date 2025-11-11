@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/yourusername/irondhcp/internal/config"
-	"github.com/yourusername/irondhcp/internal/events"
-	"github.com/yourusername/irondhcp/internal/gitops"
-	"github.com/yourusername/irondhcp/internal/logger"
-	"github.com/yourusername/irondhcp/internal/storage"
+	"github.com/sashakarcz/irondhcp/internal/config"
+	"github.com/sashakarcz/irondhcp/internal/events"
+	"github.com/sashakarcz/irondhcp/internal/gitops"
+	"github.com/sashakarcz/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/storage"
 )
 
 // Server provides HTTP API and health check endpoints

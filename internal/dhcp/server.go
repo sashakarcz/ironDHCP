@@ -9,10 +9,10 @@ import (
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
-	"github.com/yourusername/irondhcp/internal/config"
-	"github.com/yourusername/irondhcp/internal/events"
-	"github.com/yourusername/irondhcp/internal/logger"
-	"github.com/yourusername/irondhcp/internal/storage"
+	"github.com/sashakarcz/irondhcp/internal/config"
+	"github.com/sashakarcz/irondhcp/internal/events"
+	"github.com/sashakarcz/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/storage"
 )
 
 // Server represents a DHCP server

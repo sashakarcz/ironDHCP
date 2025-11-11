@@ -1,4 +1,4 @@
-module github.com/yourusername/irondhcp
+module github.com/sashakarcz/irondhcp
 
 go 1.23.0
 

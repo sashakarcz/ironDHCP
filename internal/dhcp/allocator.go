@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/yourusername/irondhcp/internal/storage"
+	"github.com/sashakarcz/irondhcp/internal/storage"
 )
 
 // Allocator handles IP address allocation using LRU algorithm

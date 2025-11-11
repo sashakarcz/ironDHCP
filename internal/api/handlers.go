@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yourusername/irondhcp/internal/events"
-	"github.com/yourusername/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/events"
+	"github.com/sashakarcz/irondhcp/internal/logger"
 )
 
 //go:embed all:dist

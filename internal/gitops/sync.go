@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/yourusername/irondhcp/internal/config"
-	"github.com/yourusername/irondhcp/internal/logger"
-	"github.com/yourusername/irondhcp/internal/storage"
+	"github.com/sashakarcz/irondhcp/internal/config"
+	"github.com/sashakarcz/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/storage"
 )
 
 // SyncService manages configuration synchronization from Git

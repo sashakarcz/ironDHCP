@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/yourusername/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/logger"
 )
 
 // RepositoryConfig holds configuration for Git repository operations

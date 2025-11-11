@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourusername/irondhcp/internal/config"
-	"github.com/yourusername/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/config"
+	"github.com/sashakarcz/irondhcp/internal/logger"
 )
 
 // AuthManager handles authentication

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/yourusername/irondhcp/internal/logger"
-	"github.com/yourusername/irondhcp/internal/storage"
+	"github.com/sashakarcz/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/storage"
 )
 
 // ExpiryWorker handles periodic lease expiration checks

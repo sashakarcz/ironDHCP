@@ -42,7 +42,7 @@ observability:
 # Enable this to sync configuration from a Git repository
 git:
   enabled: false  # Disabled for testing without a real repository
-  repository: "https://github.com/yourusername/irondhcp-config.git"
+  repository: "https://github.com/sashakarcz/irondhcp-config.git"
   branch: "main"
   config_path: "dhcp.yaml"  # Path to config file within repo
   poll_interval: 60s        # How often to check for changes

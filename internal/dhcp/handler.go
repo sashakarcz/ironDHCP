@@ -6,9 +6,9 @@ import (
 	"net"
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
-	"github.com/yourusername/irondhcp/internal/events"
-	"github.com/yourusername/irondhcp/internal/logger"
-	"github.com/yourusername/irondhcp/internal/storage"
+	"github.com/sashakarcz/irondhcp/internal/events"
+	"github.com/sashakarcz/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/storage"
 )
 
 // Handler handles DHCP requests

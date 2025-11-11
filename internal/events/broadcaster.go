@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourusername/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/logger"
 )
 
 // EventType represents the type of activity event
