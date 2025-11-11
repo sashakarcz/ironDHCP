@@ -5,8 +5,15 @@ server:
       ipv4: true
       ipv6: false
 
-  # Server identification (optional, auto-detected if not set)
-  #server_id: 192.168.1.1
+  # Server identification (for HA deployments)
+  # Use unique IDs like "dhcp-01", "dhcp-02" etc.
+  # Leave empty or comment out for single-server deployments
+  server_id: "dhcp-single"
+
+  # High Availability / Cluster configuration
+  cluster:
+    enabled: false  # Set to true for active/active HA deployments
+    use_read_cache: false  # Optional: enable read-only cache for performance (80%+ hit rate)
 
 database:
   # PostgreSQL connection

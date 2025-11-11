@@ -42,8 +42,12 @@ func (s *Store) UpdateGitSyncLog(ctx context.Context, log *GitSyncLog) error {
 		SET sync_completed_at = $1,
 		    status = $2,
 		    error_message = $3,
-		    changes_applied = $4
-		WHERE id = $5
+		    changes_applied = $4,
+		    commit_hash = $5,
+		    commit_message = $6,
+		    commit_author = $7,
+		    commit_timestamp = $8
+		WHERE id = $9
 	`
 
 	// Marshal changes to JSON
@@ -61,6 +65,10 @@ func (s *Store) UpdateGitSyncLog(ctx context.Context, log *GitSyncLog) error {
 		log.Status,
 		log.ErrorMessage,
 		changesJSON,
+		log.CommitHash,
+		log.CommitMessage,
+		log.CommitAuthor,
+		log.CommitTimestamp,
 		log.ID,
 	)
 

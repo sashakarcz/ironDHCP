@@ -130,13 +130,13 @@ export function Dashboard() {
             <div>
               <div className="flex justify-between text-sm text-gray-400 mb-1">
                 <span>Active</span>
-                <span>{stats?.active_leases || 0} / {stats?.total_leases || 0}</span>
+                <span>{stats?.active_leases || 0} / {stats?.total_available_ips || 0}</span>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2">
                 <div
                   className="bg-green-500 h-2 rounded-full transition-all"
                   style={{
-                    width: `${stats?.total_leases ? (stats.active_leases / stats.total_leases) * 100 : 0}%`,
+                    width: `${stats?.total_available_ips ? (stats.active_leases / stats.total_available_ips) * 100 : 0}%`,
                   }}
                 />
               </div>

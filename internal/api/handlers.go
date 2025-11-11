@@ -95,6 +95,7 @@ type DashboardStatsResponse struct {
 	ExpiredLeases     int    `json:"expired_leases"`
 	TotalSubnets      int    `json:"total_subnets"`
 	TotalReservations int    `json:"total_reservations"`
+	TotalAvailableIPs int    `json:"total_available_ips"` // Total IPs available across all subnets
 	Uptime            string `json:"uptime"`
 }
 
@@ -128,12 +129,32 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate total available IPs from subnet configurations
+	totalAvailableIPs := 0
+	if s.config != nil {
+		for _, subnet := range s.config.Subnets {
+			for _, pool := range subnet.Pools {
+				// Calculate IPs in range (inclusive)
+				startIP := net.ParseIP(pool.RangeStart)
+				endIP := net.ParseIP(pool.RangeEnd)
+				if startIP != nil && endIP != nil {
+					start := ipToInt(startIP)
+					end := ipToInt(endIP)
+					if end >= start {
+						totalAvailableIPs += int(end - start + 1)
+					}
+				}
+			}
+		}
+	}
+
 	response := DashboardStatsResponse{
 		TotalLeases:       int(totalActive + totalExpired),
 		ActiveLeases:      int(totalActive),
 		ExpiredLeases:     int(totalExpired),
 		TotalSubnets:      len(stats),
 		TotalReservations: len(reservations),
+		TotalAvailableIPs: totalAvailableIPs,
 		Uptime:            "N/A", // TODO: Track uptime
 	}
 
@@ -437,4 +458,13 @@ func (s *Server) handleActivityStream(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// ipToInt converts an IPv4 address to uint32
+func ipToInt(ip net.IP) uint32 {
+	ip = ip.To4()
+	if ip == nil {
+		return 0
+	}
+	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
+	"math/rand"
 	"net"
 	"time"
 
@@ -13,15 +14,19 @@ import (
 
 // Allocator handles IP address allocation using LRU algorithm
 type Allocator struct {
-	store *storage.Store
-	cache *storage.LeaseCache
+	store    *storage.Store
+	cache    *storage.LeaseCache
+	serverID string // Server ID for tracking allocations in HA deployments
+	useCache bool   // Whether to use read-only cache (optional optimization)
 }
 
 // NewAllocator creates a new IP allocator
-func NewAllocator(store *storage.Store, cacheSize int) *Allocator {
+func NewAllocator(store *storage.Store, cacheSize int, serverID string, useCache bool) *Allocator {
 	return &Allocator{
-		store: store,
-		cache: storage.NewLeaseCache(cacheSize),
+		store:    store,
+		cache:    storage.NewLeaseCache(cacheSize),
+		serverID: serverID,
+		useCache: useCache,
 	}
 }
 
@@ -31,20 +36,17 @@ func NewAllocator(store *storage.Store, cacheSize int) *Allocator {
 // 2. Check for static reservation for this MAC
 // 3. Allocate from pool (LRU: expired leases first, then never-used IPs)
 func (a *Allocator) AllocateIP(ctx context.Context, req *AllocationRequest) (*storage.Lease, error) {
-	// Step 1: Check for existing active lease
-	lease, found := a.cache.GetByMAC(req.MAC)
-	if found && lease.IsActive() && lease.Subnet.String() == req.Subnet.String() {
-		return lease, nil
-	}
-
-	// Check database if not in cache
+	// Step 1: Always check database first (source of truth for HA deployments)
+	// Cache is NOT used for allocation decisions, only as read-only optimization
 	lease, err := a.store.GetLeaseByMAC(ctx, req.MAC, req.Subnet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing lease: %w", err)
 	}
 	if lease != nil && lease.IsActive() {
-		// Update cache
-		a.cache.Put(lease)
+		// Optionally update read-only cache for performance
+		if a.useCache {
+			a.cache.Put(lease)
+		}
 		return lease, nil
 	}
 
@@ -120,14 +122,17 @@ func (a *Allocator) allocateFromPool(ctx context.Context, req *AllocationRequest
 				ClientID:    req.ClientID,
 				VendorClass: req.VendorClass,
 				UserClass:   req.UserClass,
+				AllocatedBy: a.serverID, // Track which server allocated this lease
 			}
 
 			if err := a.store.CreateLease(ctx, lease); err != nil {
 				return fmt.Errorf("failed to create lease: %w", err)
 			}
 
-			// Update cache
-			a.cache.Put(lease)
+			// Optionally update read-only cache after database confirmation
+			if a.useCache {
+				a.cache.Put(lease)
+			}
 
 			return nil
 		})
@@ -153,19 +158,31 @@ func (a *Allocator) allocateFromPool(ctx context.Context, req *AllocationRequest
 }
 
 // findNeverUsedIP searches for an IP that has never been allocated
+// Uses randomized selection to reduce lock contention in active/active deployments
 func (a *Allocator) findNeverUsedIP(ctx context.Context, req *AllocationRequest, pool *PoolConfig) (*storage.Lease, error) {
 	rangeStart := net.ParseIP(pool.RangeStart).To4()
 	rangeEnd := net.ParseIP(pool.RangeEnd).To4()
 
-	// Iterate through IP range
+	// Calculate IP range
 	startInt := binary.BigEndian.Uint32(rangeStart)
 	endInt := binary.BigEndian.Uint32(rangeEnd)
 
+	// Generate list of all IPs in range
+	var ips []net.IP
 	for ipInt := startInt; ipInt <= endInt; ipInt++ {
 		ip := make(net.IP, 4)
 		binary.BigEndian.PutUint32(ip, ipInt)
+		ips = append(ips, ip)
+	}
 
-		// Try to allocate this IP with advisory lock
+	// Shuffle to randomize order (reduces contention between servers)
+	// Multiple servers will try different IPs first, reducing conflicts
+	rand.Shuffle(len(ips), func(i, j int) {
+		ips[i], ips[j] = ips[j], ips[i]
+	})
+
+	// Try random IPs until one succeeds
+	for _, ip := range ips {
 		lockKey := getAdvisoryLockKey(ip, req.Subnet)
 		var lease *storage.Lease
 		err := a.store.WithAdvisoryLock(ctx, lockKey, func(ctx context.Context) error {
@@ -202,14 +219,17 @@ func (a *Allocator) findNeverUsedIP(ctx context.Context, req *AllocationRequest,
 				ClientID:    req.ClientID,
 				VendorClass: req.VendorClass,
 				UserClass:   req.UserClass,
+				AllocatedBy: a.serverID, // Track which server allocated this lease
 			}
 
 			if err := a.store.CreateLease(ctx, lease); err != nil {
 				return fmt.Errorf("failed to create lease: %w", err)
 			}
 
-			// Update cache
-			a.cache.Put(lease)
+			// Optionally update read-only cache after database confirmation
+			if a.useCache {
+				a.cache.Put(lease)
+			}
 
 			return nil
 		})
@@ -248,6 +268,7 @@ func (a *Allocator) createLeaseForReservation(ctx context.Context, req *Allocati
 			existing.ClientID = req.ClientID
 			existing.VendorClass = req.VendorClass
 			existing.UserClass = req.UserClass
+			existing.AllocatedBy = a.serverID // Track which server allocated this lease
 
 			if err := a.store.UpdateLease(ctx, existing); err != nil {
 				return fmt.Errorf("failed to update lease: %w", err)
@@ -268,6 +289,7 @@ func (a *Allocator) createLeaseForReservation(ctx context.Context, req *Allocati
 				ClientID:    req.ClientID,
 				VendorClass: req.VendorClass,
 				UserClass:   req.UserClass,
+				AllocatedBy: a.serverID, // Track which server allocated this lease
 			}
 
 			if err := a.store.CreateLease(ctx, lease); err != nil {
@@ -275,8 +297,10 @@ func (a *Allocator) createLeaseForReservation(ctx context.Context, req *Allocati
 			}
 		}
 
-		// Update cache
-		a.cache.Put(lease)
+		// Optionally update read-only cache after database confirmation
+		if a.useCache {
+			a.cache.Put(lease)
+		}
 
 		return nil
 	})
@@ -309,10 +333,12 @@ func (a *Allocator) RenewLease(ctx context.Context, mac net.HardwareAddr, ip net
 			return err
 		}
 
-		// Update cache
-		lease.ExpiresAt = expiresAt
-		lease.LastSeen = time.Now()
-		a.cache.Put(lease)
+		// Optionally update read-only cache after database confirmation
+		if a.useCache {
+			lease.ExpiresAt = expiresAt
+			lease.LastSeen = time.Now()
+			a.cache.Put(lease)
+		}
 
 		return nil
 	})

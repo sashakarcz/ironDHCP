@@ -49,8 +49,11 @@ type SubnetConfig struct {
 
 // New creates a new DHCP server
 func New(cfg *config.Config, store *storage.Store, broadcaster Broadcaster) (*Server, error) {
-	// Create allocator with cache
-	allocator := NewAllocator(store, 10000) // 10k lease cache
+	// Create allocator with server ID and optional cache
+	// Use server ID from config, or empty string if not set
+	serverID := cfg.Server.ServerID
+	useCache := cfg.Server.Cluster.UseReadCache
+	allocator := NewAllocator(store, 10000, serverID, useCache) // 10k lease cache
 
 	// Build subnet map
 	subnets := make(map[string]*SubnetConfig)

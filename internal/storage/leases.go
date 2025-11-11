@@ -13,7 +13,7 @@ import (
 func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet *net.IPNet) (*Lease, error) {
 	query := `
 		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
-		       state, client_id, vendor_class, user_class, created_at, updated_at
+		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		WHERE mac = $1 AND subnet = $2 AND state = 'active'
 		ORDER BY expires_at DESC
@@ -26,7 +26,7 @@ func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet 
 	err := s.pool.QueryRow(ctx, query, mac.String(), subnet.String()).Scan(
 		&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
 		&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
-		&lease.ClientID, &lease.VendorClass, &lease.UserClass,
+		&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 		&lease.CreatedAt, &lease.UpdatedAt,
 	)
 
@@ -48,7 +48,7 @@ func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet 
 func (s *Store) GetLeaseByIP(ctx context.Context, ip net.IP, subnet *net.IPNet) (*Lease, error) {
 	query := `
 		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
-		       state, client_id, vendor_class, user_class, created_at, updated_at
+		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		WHERE ip = $1 AND subnet = $2
 		ORDER BY expires_at DESC
@@ -61,7 +61,7 @@ func (s *Store) GetLeaseByIP(ctx context.Context, ip net.IP, subnet *net.IPNet) 
 	err := s.pool.QueryRow(ctx, query, ip.String(), subnet.String()).Scan(
 		&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
 		&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
-		&lease.ClientID, &lease.VendorClass, &lease.UserClass,
+		&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 		&lease.CreatedAt, &lease.UpdatedAt,
 	)
 
@@ -82,8 +82,8 @@ func (s *Store) GetLeaseByIP(ctx context.Context, ip net.IP, subnet *net.IPNet) 
 // CreateLease creates a new lease record
 func (s *Store) CreateLease(ctx context.Context, lease *Lease) error {
 	query := `
-		INSERT INTO leases (ip, mac, hostname, subnet, issued_at, expires_at, last_seen, state, client_id, vendor_class, user_class)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO leases (ip, mac, hostname, subnet, issued_at, expires_at, last_seen, state, client_id, vendor_class, user_class, allocated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -99,6 +99,7 @@ func (s *Store) CreateLease(ctx context.Context, lease *Lease) error {
 		lease.ClientID,
 		lease.VendorClass,
 		lease.UserClass,
+		lease.AllocatedBy,
 	).Scan(&lease.ID, &lease.CreatedAt, &lease.UpdatedAt)
 
 	if err != nil {
@@ -113,8 +114,8 @@ func (s *Store) UpdateLease(ctx context.Context, lease *Lease) error {
 	query := `
 		UPDATE leases
 		SET hostname = $1, issued_at = $2, expires_at = $3, last_seen = $4,
-		    state = $5, client_id = $6, vendor_class = $7, user_class = $8
-		WHERE id = $9
+		    state = $5, client_id = $6, vendor_class = $7, user_class = $8, allocated_by = $9
+		WHERE id = $10
 		RETURNING updated_at
 	`
 
@@ -127,6 +128,7 @@ func (s *Store) UpdateLease(ctx context.Context, lease *Lease) error {
 		lease.ClientID,
 		lease.VendorClass,
 		lease.UserClass,
+		lease.AllocatedBy,
 		lease.ID,
 	).Scan(&lease.UpdatedAt)
 
@@ -189,7 +191,7 @@ func (s *Store) DeclineLease(ctx context.Context, ip net.IP, subnet *net.IPNet) 
 func (s *Store) GetExpiredLeases(ctx context.Context, subnet *net.IPNet, rangeStart, rangeEnd net.IP, limit int) ([]*Lease, error) {
 	query := `
 		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
-		       state, client_id, vendor_class, user_class, created_at, updated_at
+		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		WHERE subnet = $1
 		  AND ip >= $2
@@ -213,7 +215,7 @@ func (s *Store) GetExpiredLeases(ctx context.Context, subnet *net.IPNet, rangeSt
 		err := rows.Scan(
 			&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
 			&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
-			&lease.ClientID, &lease.VendorClass, &lease.UserClass,
+			&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 			&lease.CreatedAt, &lease.UpdatedAt,
 		)
 		if err != nil {
@@ -341,7 +343,7 @@ func (s *Store) ExpireLeases(ctx context.Context) (int64, error) {
 func (s *Store) GetAllLeases(ctx context.Context) ([]*Lease, error) {
 	query := `
 		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
-		       state, client_id, vendor_class, user_class, created_at, updated_at
+		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		ORDER BY expires_at DESC
 	`
@@ -360,7 +362,7 @@ func (s *Store) GetAllLeases(ctx context.Context) ([]*Lease, error) {
 		err := rows.Scan(
 			&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
 			&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
-			&lease.ClientID, &lease.VendorClass, &lease.UserClass,
+			&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 			&lease.CreatedAt, &lease.UpdatedAt,
 		)
 		if err != nil {

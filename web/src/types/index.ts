@@ -63,6 +63,7 @@ export interface DashboardStats {
   expired_leases: number;
   total_subnets: number;
   total_reservations: number;
+  total_available_ips: number;
   uptime: string;
 }
 

@@ -29,6 +29,7 @@ type Lease struct {
 	ClientID    string
 	VendorClass string
 	UserClass   string
+	AllocatedBy string // Server ID that allocated this lease (for HA)
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

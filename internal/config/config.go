@@ -22,6 +22,13 @@ type Config struct {
 type ServerConfig struct {
 	Interfaces []InterfaceConfig `yaml:"interfaces"`
 	ServerID   string            `yaml:"server_id,omitempty"`
+	Cluster    ClusterConfig     `yaml:"cluster,omitempty"`
+}
+
+// ClusterConfig holds HA cluster settings
+type ClusterConfig struct {
+	Enabled      bool `yaml:"enabled"`
+	UseReadCache bool `yaml:"use_read_cache"` // Use cache for reads only (not allocation decisions)
 }
 
 // InterfaceConfig specifies which network interfaces to listen on
@@ -216,11 +223,8 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	if c.Server.ServerID != "" {
-		if net.ParseIP(c.Server.ServerID) == nil {
-			return fmt.Errorf("server_id must be a valid IP address")
-		}
-	}
+	// server_id can be any string identifier (e.g., "dhcp-01", "dhcp-02")
+	// No validation needed
 
 	// Validate database config
 	if c.Database.Connection == "" {

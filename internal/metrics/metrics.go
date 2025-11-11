@@ -25,6 +25,11 @@ type Metrics struct {
 	IPAllocationErrors prometheus.Counter
 	IPAllocationDuration prometheus.Histogram
 
+	// Cluster/HA metrics
+	IPAllocationsPerServer *prometheus.CounterVec
+	AllocationRetries *prometheus.HistogramVec
+	DatabaseLatency *prometheus.HistogramVec
+
 	// Reservation metrics
 	StaticReservations prometheus.Gauge
 
@@ -131,6 +136,33 @@ func New() *Metrics {
 				Help:    "Duration of IP allocation operations",
 				Buckets: prometheus.DefBuckets,
 			},
+		),
+
+		// Cluster/HA metrics
+		IPAllocationsPerServer: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "irondhcp_allocations_per_server_total",
+				Help: "Total DHCP allocations by server ID and subnet",
+			},
+			[]string{"server_id", "subnet"},
+		),
+
+		AllocationRetries: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "irondhcp_allocation_retries",
+				Help:    "Number of retries before successful allocation (indicates lock contention)",
+				Buckets: []float64{0, 1, 2, 5, 10, 20, 50},
+			},
+			[]string{"server_id", "subnet"},
+		),
+
+		DatabaseLatency: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "irondhcp_database_latency_seconds",
+				Help:    "Database query latency by operation type",
+				Buckets: []float64{0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0},
+			},
+			[]string{"operation"},
 		),
 
 		// Reservation metrics
@@ -271,4 +303,23 @@ func (m *Metrics) RecordDatabaseError() {
 // UpdateDatabaseConnections updates database connection count
 func (m *Metrics) UpdateDatabaseConnections(count int) {
 	m.DatabaseConnections.Set(float64(count))
+}
+
+// RecordServerAllocation records an IP allocation by a specific server
+func (m *Metrics) RecordServerAllocation(serverID, subnet string) {
+	if serverID != "" {
+		m.IPAllocationsPerServer.WithLabelValues(serverID, subnet).Inc()
+	}
+}
+
+// RecordAllocationRetries records the number of retries for an allocation
+func (m *Metrics) RecordAllocationRetries(serverID, subnet string, retries float64) {
+	if serverID != "" {
+		m.AllocationRetries.WithLabelValues(serverID, subnet).Observe(retries)
+	}
+}
+
+// RecordDatabaseLatency records database operation latency
+func (m *Metrics) RecordDatabaseLatency(operation string, duration float64) {
+	m.DatabaseLatency.WithLabelValues(operation).Observe(duration)
 }

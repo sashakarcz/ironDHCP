@@ -1,0 +1,66 @@
+# ironDHCP High Availability Configuration - Server 1
+# This is an example configuration for active/active HA deployment
+
+server:
+  # Network interfaces to listen on
+  interfaces:
+    - name: eth0  # Or your network interface name
+      ipv4: true
+      ipv6: false
+
+  # Server identification - MUST be unique per server
+  server_id: "dhcp-01"
+
+  # High Availability / Cluster configuration
+  cluster:
+    enabled: true  # Enable active/active HA mode
+    use_read_cache: false  # Start without cache for simplicity
+    # Set to true after testing for 80%+ cache hit rate and better performance
+
+database:
+  # IMPORTANT: All HA servers MUST share the same PostgreSQL database
+  # Use a highly available PostgreSQL setup (e.g., Patroni, PostgreSQL HA)
+  connection: "postgres://dhcp:password@postgres-shared:5432/irondhcp?sslmode=disable"
+
+  # Connection pool settings (tune based on load)
+  max_connections: 20
+  min_connections: 5
+
+  # Lease write batching (performance optimization)
+  batch_writes: true
+  batch_interval: 1s
+
+observability:
+  # Prometheus metrics endpoint
+  metrics_enabled: true
+  metrics_port: 9090
+  metrics_path: /metrics
+
+  # Structured logging
+  log_level: info  # debug, info, warn, error
+  log_format: json  # json or text
+
+  # Web UI and API
+  web_enabled: true
+  web_port: 8080
+  web_auth:
+    enabled: true
+    username: admin
+    password_hash: "$2a$10$..." # bcrypt hash
+
+# GitOps configuration (optional but recommended for HA)
+git:
+  enabled: true
+  repository: "https://github.com/yourorg/dhcp-config.git"
+  branch: "main"
+  config_path: "dhcp.yaml"
+  poll_interval: 60s
+  sync_timeout: 30s
+  validate_before_sync: true
+
+  auth:
+    type: "token"
+    token: "${GIT_TOKEN}"
+
+# Subnet configuration comes from Git in this example
+# See dhcp.yaml in the repository for subnet definitions

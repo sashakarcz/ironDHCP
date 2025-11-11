@@ -274,86 +274,128 @@ sudo ./bin/irondhcp --config config.yaml \
 
 Access the web interface at `http://localhost:8080` (or your configured API address).
 
-**Dashboard**: Real-time statistics including active leases, subnet utilization, and system uptime
+The web UI is a modern, responsive React application with a dark theme, embedded directly in the binary.
 
-**Leases**: Browse all DHCP leases with search and filtering by:
-- IP address or hostname
-- Lease state (active, expired, released)
-- Subnet
+#### Dashboard
 
-**Subnets**: View subnet configuration and utilization with visual progress bars
+Real-time statistics and system overview:
+- Total leases (active + expired)
+- Active lease count
+- Expired lease count
+- Total subnets configured
+- Static reservations count
+- System uptime
 
-**Reservations**: View static MAC-to-IP reservations
+![dashboard](docs/dashboard.png)
 
-**Activity**: Live activity log showing DHCP events (DISCOVER, OFFER, REQUEST, ACK, etc.) in real-time
+#### Leases
 
-**Git Sync**: View Git sync status, commit history, and trigger manual syncs
+Browse all DHCP leases (dynamic and static) with search and filtering:
+- Search by IP address, MAC address, or hostname
+- Filter by lease state (active, expired, released, static)
+- Filter by subnet
+- Sort by any column
+- Real-time updates
+
+![leases](docs/leases.png)
+
+#### **Lease States:**
+-  **Static**: Permanent MAC-to-IP reservation
+-  **Active**: Currently active lease
+-  **Expired**: Lease has expired
+-  **Released**: Client released the lease
+
+#### Subnets
+
+View subnet configuration and utilization metrics:
+- Network CIDR
+- Gateway and DNS servers
+- Lease duration
+- Active leases vs total IPs
+- Utilization percentage with visual progress bar
+
+![subnets](docs/subnets.png)
+
+#### Reservations
+
+View and manage static MAC-to-IP reservations:
+- MAC address and reserved IP
+- Hostname and description
+- PXE boot configuration (TFTP server, boot filename)
+- When GitOps is enabled, managed via Git
+
+![config](docs/config.png)
+
+#### Activity Log
+
+Real-time activity stream showing DHCP events as they occur:
+- Live updates via Server-Sent Events (SSE)
+- Color-coded event types
+- Detailed event information
+- Auto-scroll to latest events
+
+![config](docs/congfig.png)
+
+#### Git Sync (GitOps)
+
+View Git repository status and sync history:
+- Current commit information
+- Last sync timestamp and status
+- Sync history with commit details
+- Manual sync trigger button
+- Changes applied per sync
+
+![git](docs/git.png)
+
+**Features:**
+- Responsive design (works on desktop, tablet, mobile)
+- Dark theme with syntax highlighting
+- Real-time updates without page refresh
+- Filter, search, and sort capabilities
+- Bearer token authentication with auto-refresh
+- Embedded in single binary (no external dependencies)
 
 ### REST API
 
-All endpoints require Bearer token authentication (if web_auth is enabled).
+Complete REST API for programmatic access and automation.
 
-**Authentication:**
+**Quick Example:**
 ```bash
-curl -X POST http://localhost:8080/api/v1/login \
+# Login
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
-```
+  -d '{"username":"admin","password":"admin"}' | jq -r '.token')
 
-Response:
-```json
-{"token":"eyJhbGc..."}
-```
-
-**Get Dashboard Stats:**
-```bash
-curl -H "Authorization: Bearer <token>" \
+# Get dashboard stats
+curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/v1/dashboard/stats
-```
 
-**List Leases:**
-```bash
-curl -H "Authorization: Bearer <token>" \
+# List active leases
+curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/v1/leases
-```
 
-**List Subnets:**
-```bash
-curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/subnets
-```
-
-**List Reservations:**
-```bash
-curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/reservations
-```
-
-**Get Git Status:**
-```bash
-curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/git/status
-```
-
-**Get Git Sync Logs:**
-```bash
-curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/git/logs
-```
-
-**Trigger Manual Git Sync:**
-```bash
-curl -X POST -H "Authorization: Bearer <token>" \
+# Trigger Git sync
+curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   http://localhost:8080/api/v1/git/sync \
-  -d '{"triggered_by":"api"}'
+  -d '{"triggered_by":"automation"}'
 ```
 
-**Activity Stream (SSE):**
-```bash
-curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/activity/stream
-```
+**Available Endpoints:**
+- `POST /api/v1/login` - Authenticate and get bearer token
+- `GET /api/v1/health` - Health check (no auth required)
+- `GET /api/v1/dashboard/stats` - Dashboard statistics
+- `GET /api/v1/leases` - List all DHCP leases
+- `GET /api/v1/subnets` - List subnets with utilization
+- `GET /api/v1/reservations` - List static reservations
+- `GET /api/v1/git/status` - Git repository status
+- `GET /api/v1/git/logs` - Git sync operation history
+- `POST /api/v1/git/sync` - Trigger manual Git sync
+- `GET /api/v1/activity/stream` - Real-time activity stream (SSE)
+
+**Full Documentation:**
+- [API.md](./API.md) - Complete API reference with request/response examples, data models, and error codes
+- [API-QUICKREF.md](./API-QUICKREF.md) - Quick reference card for common operations and automation examples
 
 ### Prometheus Metrics
 
