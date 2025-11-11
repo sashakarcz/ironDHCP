@@ -771,9 +771,6 @@ This is a learning and portfolio project. Contributions, feedback, and suggestio
 
 ### Phase 3 (Planned)
 - DHCP relay agent support
-- High availability with leader election
-- Configuration hot reload without Git
-- Lease reservation from web UI
 - Advanced filtering and reporting
 - Subnet usage alerts
 - IPv6 support (DHCPv6)
