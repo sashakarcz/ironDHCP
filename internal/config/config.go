@@ -252,8 +252,9 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate subnets
-	if len(c.Subnets) == 0 {
-		return fmt.Errorf("at least one subnet must be configured")
+	// Allow empty subnets if GitOps is enabled (they'll be synced from Git)
+	if len(c.Subnets) == 0 && !c.Git.Enabled {
+		return fmt.Errorf("at least one subnet must be configured (or enable GitOps)")
 	}
 
 	for i, subnet := range c.Subnets {

@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sashakarcz/irondhcp/internal/events"
 	"github.com/sashakarcz/irondhcp/internal/logger"
+	"github.com/sashakarcz/irondhcp/internal/storage"
 )
 
 //go:embed all:dist
@@ -164,15 +166,24 @@ func (s *Server) handleLeases(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	// Get all leases
+	// Get all dynamic leases
 	leases, err := s.store.GetAllLeases(ctx)
 	if err != nil {
 		http.Error(w, "Failed to get leases", http.StatusInternalServerError)
 		return
 	}
 
+	// Get all reservations (static leases)
+	reservations, err := s.store.GetAllReservations(ctx)
+	if err != nil {
+		http.Error(w, "Failed to get reservations", http.StatusInternalServerError)
+		return
+	}
+
 	// Convert to response format (initialize as empty array, not nil)
 	response := make([]LeaseResponse, 0)
+
+	// Add dynamic leases
 	for _, lease := range leases {
 		response = append(response, LeaseResponse{
 			ID:          lease.ID,
@@ -186,6 +197,36 @@ func (s *Server) handleLeases(w http.ResponseWriter, r *http.Request) {
 			State:       string(lease.State),
 			ClientID:    lease.ClientID,
 			VendorClass: lease.VendorClass,
+		})
+	}
+
+	// Add static leases (reservations) that don't have active dynamic leases
+	// Create a map of active lease MACs for quick lookup
+	activeMacs := make(map[string]bool)
+	for _, lease := range leases {
+		activeMacs[lease.MAC.String()] = true
+	}
+
+	// Add reservations that don't have active leases
+	zeroTime := time.Time{}.Format(time.RFC3339)
+	for _, res := range reservations {
+		// Skip if this MAC already has an active lease
+		if activeMacs[res.MAC.String()] {
+			continue
+		}
+
+		response = append(response, LeaseResponse{
+			ID:          res.ID,
+			IP:          res.IP.String(),
+			MAC:         res.MAC.String(),
+			Hostname:    res.Hostname,
+			Subnet:      res.Subnet.String(),
+			IssuedAt:    zeroTime,
+			ExpiresAt:   zeroTime,
+			LastSeen:    zeroTime,
+			State:       "static",
+			ClientID:    "",
+			VendorClass: "",
 		})
 	}
 
@@ -222,28 +263,49 @@ func (s *Server) handleSubnets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create map of statistics by subnet
+	statsMap := make(map[string]*storage.LeaseStatistics)
+	for i := range stats {
+		statsMap[stats[i].Subnet.String()] = stats[i]
+	}
+
 	// Convert to response format (initialize as empty array, not nil)
 	response := make([]SubnetResponse, 0)
-	for _, stat := range stats {
-		// Calculate total IPs (simplified - actual calculation would need to account for network/broadcast)
-		ones, bits := stat.Subnet.Mask.Size()
-		totalIPs := 1 << uint(bits-ones) - 2 // Subtract network and broadcast addresses
 
-		utilization := float64(0)
-		if totalIPs > 0 {
-			utilization = (float64(stat.ActiveLeases) / float64(totalIPs)) * 100
+	// Get subnets from current config (may be nil if not yet loaded)
+	if s.config != nil {
+		for _, subnet := range s.config.Subnets {
+			// Parse network to calculate total IPs
+			_, network, err := net.ParseCIDR(subnet.Network)
+			if err != nil {
+				continue
+			}
+
+			ones, bits := network.Mask.Size()
+			totalIPs := 1 << uint(bits-ones) - 2 // Subtract network and broadcast addresses
+
+			// Get statistics for this subnet if available
+			activeLeases := int64(0)
+			if stat, ok := statsMap[subnet.Network]; ok {
+				activeLeases = stat.ActiveLeases
+			}
+
+			utilization := float64(0)
+			if totalIPs > 0 {
+				utilization = (float64(activeLeases) / float64(totalIPs)) * 100
+			}
+
+			response = append(response, SubnetResponse{
+				Network:       subnet.Network,
+				Description:   subnet.Description,
+				Gateway:       subnet.Gateway,
+				DNSServers:    subnet.DNSServers,
+				LeaseDuration: subnet.LeaseDuration.String(),
+				ActiveLeases:  activeLeases,
+				TotalIPs:      totalIPs,
+				Utilization:   utilization,
+			})
 		}
-
-		response = append(response, SubnetResponse{
-			Network:       stat.Subnet.String(),
-			Description:   "Subnet description", // TODO: Store subnet descriptions
-			Gateway:       "",                   // TODO: Store gateway info
-			DNSServers:    []string{},           // TODO: Store DNS info
-			LeaseDuration: "24h",                // TODO: Store lease duration
-			ActiveLeases:  stat.ActiveLeases,
-			TotalIPs:      totalIPs,
-			Utilization:   utilization,
-		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

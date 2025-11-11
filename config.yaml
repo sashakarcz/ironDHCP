@@ -34,52 +34,23 @@ observability:
   web_enabled: true
   web_port: 8080
   web_auth:
-    enabled: false # Disable for development
+    enabled: false  # Disable for development
     username: admin
-    password_hash: "89e01536ac207279409d4de1e5253e01f4a1769e696db0d6062ca9b8f56767c8"
+    password_hash: ""
 
-# GitOps disabled for Phase 1 (will implement in Phase 2)
+# GitOps configuration (Phase 2)
+# Enable this to sync configuration from a Git repository
 git:
-  enabled: true
+  enabled: true  # Disabled for testing without a real repository
+  repository: "https://github.com/sashakarcz/irondhcp-config.git"
+  branch: "main"
+  config_path: "dhcp.yaml"  # Path to config file within repo
+  poll_interval: 60s        # How often to check for changes
+  sync_timeout: 30s         # Timeout for sync operations
+  validate_before_sync: true
 
-subnets:
-  - network: 192.168.1.0/24
-    description: "Example Office Network"
-
-    # Gateway and DNS for this subnet
-    gateway: 192.168.1.1
-    dns_servers:
-      - 8.8.8.8
-      - 1.1.1.1
-
-    # Lease time
-    lease_duration: 24h
-    max_lease_duration: 168h  # 7 days
-
-    # DHCP options (optional)
-    options:
-      domain_name: "example.local"
-
-    # PXE/iPXE boot settings (network-wide defaults)
-    # These are applied to all clients in this subnet
-    boot:
-      tftp_server: "192.168.1.5"      # DHCP option 66 - TFTP server address
-      filename: "pxelinux.0"           # DHCP option 67 - Boot filename
-
-    # Dynamic pools (LRU allocation)
-    pools:
-      - range_start: 192.168.1.100
-        range_end: 192.168.1.200
-        description: "Dynamic pool"
-
-    # Static reservations
-    reservations:
-      - hostname: test-server
-        mac: "aa:bb:cc:dd:ee:ff"
-        ip: 192.168.1.10
-        description: "Test server"
-        # Per-host boot override (optional)
-        # Overrides the subnet-level boot settings for this specific host
-        boot:
-          tftp_server: "192.168.1.5"
-          filename: "ipxe.efi"           # Different filename for UEFI boot
+  # Authentication (optional)
+  auth:
+    type: "none"  # Options: token, ssh, none
+    token: "${GIT_TOKEN}"  # Use environment variable for token
+    # ssh_key_path: "/path/to/ssh/key"  # For SSH auth

@@ -23,6 +23,7 @@ type Server struct {
 	authManager *AuthManager
 	httpServer  *http.Server
 	port        int
+	config      *config.Config
 }
 
 // Config holds API server configuration
@@ -33,14 +34,20 @@ type Config struct {
 }
 
 // New creates a new API server
-func New(cfg Config, store *storage.Store, poller *gitops.Poller, broadcaster *events.Broadcaster) *Server {
+func New(cfg Config, store *storage.Store, poller *gitops.Poller, broadcaster *events.Broadcaster, dhcpConfig *config.Config) *Server {
 	return &Server{
 		store:       store,
 		poller:      poller,
 		broadcaster: broadcaster,
 		authManager: NewAuthManager(cfg.WebAuth),
 		port:        cfg.Port,
+		config:      dhcpConfig,
 	}
+}
+
+// UpdateConfig updates the server's config (called when GitOps applies new config)
+func (s *Server) UpdateConfig(cfg *config.Config) {
+	s.config = cfg
 }
 
 // Start starts the API server

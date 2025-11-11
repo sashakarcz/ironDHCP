@@ -20,8 +20,8 @@ import (
 )
 
 const banner = `
-  _                 ___  _  _ ___ ___
- (_)_ _ ___ _ _    |   \| || / __| _ \
+  _                 ___  _  _  ___ ___
+ (_)_ _ ___ _ _    |   \| || |/ __| _ \
  | | '_/ _ \ ' \   | |) | __ | (__|  _/
  |_|_| \___/_||_|  |___/|_||_|\___|_|
 
@@ -99,6 +99,7 @@ func main() {
 
 	// Initialize GitOps (if enabled)
 	var gitPoller *gitops.Poller
+	var syncService *gitops.SyncService
 	var expiryWorker *dhcp.ExpiryWorker
 
 	if cfg.Git.Enabled {
@@ -127,8 +128,8 @@ func main() {
 			logger.Fatal().Err(err).Msg("Failed to initialize Git repository")
 		}
 
-		// Create sync service with reload function (will be set later)
-		syncService := gitops.NewSyncService(repo, store, nil)
+		// Create sync service with base config and reload function (will be set later)
+		syncService = gitops.NewSyncService(repo, store, cfg, nil)
 
 		// Create poller
 		gitPoller = gitops.NewPoller(syncService, cfg.Git.PollInterval)
@@ -176,10 +177,19 @@ func main() {
 			Port:    cfg.Observability.WebPort,
 			Enabled: cfg.Observability.WebEnabled,
 			WebAuth: &cfg.Observability.WebAuth,
-		}, store, gitPoller, broadcaster)
+		}, store, gitPoller, broadcaster, cfg)
 
 		if err := apiServer.Start(ctx); err != nil {
 			logger.Fatal().Err(err).Msg("Failed to start API server")
+		}
+
+		// Set GitOps reload function to update API server config
+		if syncService != nil {
+			syncService.SetReloadFunc(func(newCfg *config.Config) error {
+				apiServer.UpdateConfig(newCfg)
+				// TODO: Also reload DHCP server when implemented
+				return nil
+			})
 		}
 	}
 

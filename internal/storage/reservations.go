@@ -182,7 +182,7 @@ func (s *Store) DeleteAllReservations(ctx context.Context) error {
 // GetAllReservations retrieves all reservations
 func (s *Store) GetAllReservations(ctx context.Context) ([]*Reservation, error) {
 	query := `
-		SELECT id, mac::text, ip::text, hostname, subnet::text, description,
+		SELECT id, mac::text, host(ip), hostname, subnet::text, description,
 		       tftp_server, boot_filename, created_at, updated_at
 		FROM reservations
 		ORDER BY subnet, ip

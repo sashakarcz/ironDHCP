@@ -9,6 +9,7 @@ import (
 	"github.com/sashakarcz/irondhcp/internal/config"
 	"github.com/sashakarcz/irondhcp/internal/logger"
 	"github.com/sashakarcz/irondhcp/internal/storage"
+	"gopkg.in/yaml.v3"
 )
 
 // SyncService manages configuration synchronization from Git
@@ -17,6 +18,7 @@ type SyncService struct {
 	store       *storage.Store
 	reloadFunc  func(*config.Config) error
 	currentHash string
+	baseConfig  *config.Config
 }
 
 // SyncResult contains the result of a sync operation
@@ -29,12 +31,18 @@ type SyncResult struct {
 }
 
 // NewSyncService creates a new sync service
-func NewSyncService(repo *Repository, store *storage.Store, reloadFunc func(*config.Config) error) *SyncService {
+func NewSyncService(repo *Repository, store *storage.Store, baseConfig *config.Config, reloadFunc func(*config.Config) error) *SyncService {
 	return &SyncService{
 		repo:       repo,
 		store:      store,
 		reloadFunc: reloadFunc,
+		baseConfig: baseConfig,
 	}
+}
+
+// SetReloadFunc sets the reload function (used to set it after creation)
+func (s *SyncService) SetReloadFunc(reloadFunc func(*config.Config) error) {
+	s.reloadFunc = reloadFunc
 }
 
 // Sync performs a complete sync operation: pull, validate, and apply
@@ -123,25 +131,43 @@ func (s *SyncService) Sync(ctx context.Context, trigger storage.GitSyncTrigger, 
 	return result, nil
 }
 
-// validateConfig validates a configuration file
+// validateConfig validates a configuration file from Git and merges it with base config
 func (s *SyncService) validateConfig(configPath string) (*config.Config, error) {
 	// Check if file exists
 	if _, err := os.Stat(configPath); err != nil {
 		return nil, fmt.Errorf("config file not found: %w", err)
 	}
 
-	// Load config
-	cfg, err := config.Load(configPath)
+	// Read the Git config file
+	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Validate config
-	if err := s.validateConfigStructure(cfg); err != nil {
+	// Parse as partial config (only subnets)
+	var partialCfg struct {
+		Subnets []config.SubnetConfig `yaml:"subnets"`
+	}
+	if err := yaml.Unmarshal(data, &partialCfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	// Create a new config based on the base config
+	// Clone the base config to avoid modifying it
+	newConfig := &config.Config{
+		Server:        s.baseConfig.Server,
+		Database:      s.baseConfig.Database,
+		Observability: s.baseConfig.Observability,
+		Git:           s.baseConfig.Git,
+		Subnets:       partialCfg.Subnets,
+	}
+
+	// Validate the merged config
+	if err := s.validateConfigStructure(newConfig); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
-	return cfg, nil
+	return newConfig, nil
 }
 
 // validateConfigStructure performs structural validation on the config
