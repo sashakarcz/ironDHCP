@@ -1,0 +1,59 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Build artifacts
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+docs/
+.github/
+
+# Test files
+*_test.go
+testdata/
+
+# Node modules (will be installed during build)
+web/node_modules/
+
+# Environment and config files
+.env
+.env.*
+config.yaml
+config-*.yaml
+!config-docker.yaml
+!config-docker-test.yaml
+
+# Temporary files
+tmp/
+/tmp/
+*.log
+
+# Database files
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (no need to include in the build context)
+Dockerfile*
+docker-compose*.yml
+.dockerignore

@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: irondhcp-test-postgres
+    environment:
+      POSTGRES_DB: irondhcp
+      POSTGRES_USER: dhcp
+      POSTGRES_PASSWORD: test123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+      - ./migrations/002_add_server_id.sql:/docker-entrypoint-initdb.d/002_add_server_id.sql:ro
+    networks:
+      dhcp-test-net:
+        ipv4_address: 10.200.100.2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dhcp -d irondhcp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ironDHCP Server
+  irondhcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: irondhcp-test-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      IRONDHCP_DB_HOST: postgres
+      IRONDHCP_DB_PORT: 5432
+      IRONDHCP_DB_NAME: irondhcp
+      IRONDHCP_DB_USER: dhcp
+      IRONDHCP_DB_PASSWORD: test123
+    volumes:
+      - ./config-docker-test.yaml:/etc/irondhcp/config.yaml:ro
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    networks:
+      dhcp-test-net:
+        ipv4_address: 10.200.100.10
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  # Test DHCP Client
+  dhcp-client:
+    image: alpine:latest
+    container_name: irondhcp-test-client
+    depends_on:
+      irondhcp:
+        condition: service_healthy
+    command: /bin/sh -c "while true; do sleep 3600; done"
+    networks:
+      dhcp-test-net:
+        # No static IP - will get one from DHCP
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./test-dhcp-client.sh:/test-dhcp-client.sh:ro
+
+networks:
+  dhcp-test-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.200.100.0/24
+          gateway: 10.200.100.1
+
+volumes:
+  test_postgres_data:
+    driver: local

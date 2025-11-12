@@ -12,7 +12,7 @@ import (
 // GetLeaseByMAC retrieves a lease by MAC address
 func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet *net.IPNet) (*Lease, error) {
 	query := `
-		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
+		SELECT id, ip::text, mac::text, hostname, subnet::text, issued_at, expires_at, last_seen,
 		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		WHERE mac = $1 AND subnet = $2 AND state = 'active'
@@ -21,10 +21,10 @@ func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet 
 	`
 
 	var lease Lease
-	var ipStr, subnetStr string
+	var ipStr, macStr, subnetStr string
 
 	err := s.pool.QueryRow(ctx, query, mac.String(), subnet.String()).Scan(
-		&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
+		&lease.ID, &ipStr, &macStr, &lease.Hostname, &subnetStr,
 		&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
 		&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 		&lease.CreatedAt, &lease.UpdatedAt,
@@ -37,8 +37,9 @@ func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet 
 		return nil, fmt.Errorf("failed to get lease by MAC: %w", err)
 	}
 
-	// Parse IP and subnet
+	// Parse IP, MAC, and subnet
 	lease.IP = net.ParseIP(ipStr)
+	lease.MAC, _ = net.ParseMAC(macStr)
 	_, lease.Subnet, _ = net.ParseCIDR(subnetStr)
 
 	return &lease, nil
@@ -47,7 +48,7 @@ func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet 
 // GetLeaseByIP retrieves a lease by IP address
 func (s *Store) GetLeaseByIP(ctx context.Context, ip net.IP, subnet *net.IPNet) (*Lease, error) {
 	query := `
-		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
+		SELECT id, ip::text, mac::text, hostname, subnet::text, issued_at, expires_at, last_seen,
 		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		WHERE ip = $1 AND subnet = $2
@@ -56,10 +57,10 @@ func (s *Store) GetLeaseByIP(ctx context.Context, ip net.IP, subnet *net.IPNet) 
 	`
 
 	var lease Lease
-	var ipStr, subnetStr string
+	var ipStr, macStr, subnetStr string
 
 	err := s.pool.QueryRow(ctx, query, ip.String(), subnet.String()).Scan(
-		&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
+		&lease.ID, &ipStr, &macStr, &lease.Hostname, &subnetStr,
 		&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
 		&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 		&lease.CreatedAt, &lease.UpdatedAt,
@@ -72,8 +73,9 @@ func (s *Store) GetLeaseByIP(ctx context.Context, ip net.IP, subnet *net.IPNet) 
 		return nil, fmt.Errorf("failed to get lease by IP: %w", err)
 	}
 
-	// Parse IP and subnet
+	// Parse IP, MAC, and subnet
 	lease.IP = net.ParseIP(ipStr)
+	lease.MAC, _ = net.ParseMAC(macStr)
 	_, lease.Subnet, _ = net.ParseCIDR(subnetStr)
 
 	return &lease, nil

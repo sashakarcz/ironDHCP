@@ -1,0 +1,61 @@
+# ironDHCP Test Configuration for Docker
+server:
+  interfaces:
+    - name: eth0
+      ipv4: true
+      ipv6: false
+
+  server_id: "dhcp-test-server"
+
+  cluster:
+    enabled: false
+    use_read_cache: false
+
+database:
+  connection: "postgres://dhcp:test123@postgres:5432/irondhcp?sslmode=disable"
+  max_connections: 20
+  min_connections: 5
+  batch_writes: true
+  batch_interval: 1s
+
+observability:
+  metrics_enabled: true
+  metrics_port: 9090
+  metrics_path: /metrics
+
+  log_level: debug
+  log_format: text
+
+  web_enabled: true
+  web_port: 8080
+  web_auth:
+    enabled: true
+    username: admin
+    password_hash: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
+# GitOps disabled for testing
+git:
+  enabled: false
+
+# Test subnet configuration
+subnets:
+  - network: "10.200.100.0/24"
+    description: "Docker Test Network"
+    gateway: "10.200.100.1"
+    dns_servers:
+      - "8.8.8.8"
+      - "1.1.1.1"
+    lease_duration: 1h
+    max_lease_duration: 24h
+
+    pools:
+      - range_start: "10.200.100.100"
+        range_end: "10.200.100.200"
+        description: "Test pool"
+
+    # Static reservation for testing
+    reservations:
+      - mac: "02:42:ac:11:00:10"
+        ip: "10.200.100.50"
+        hostname: "test-reserved"
+        description: "Test static reservation"

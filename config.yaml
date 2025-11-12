@@ -34,8 +34,8 @@ observability:
   metrics_path: /metrics
 
   # Structured logging
-  log_level: info  # debug, info, warn, error
-  log_format: json  # json or text
+  log_level: debug  # debug, info, warn, error
+  log_format: text  # json or text
 
   # Web UI and API
   web_enabled: true

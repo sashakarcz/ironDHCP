@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: irondhcp-postgres
+    environment:
+      POSTGRES_DB: irondhcp
+      POSTGRES_USER: dhcp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Mount init script to create schema
+      - ./migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+      - ./migrations/002_add_server_id.sql:/docker-entrypoint-initdb.d/002_add_server_id.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dhcp -d irondhcp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - irondhcp-net
+    restart: unless-stopped
+
+  # ironDHCP Server
+  irondhcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: irondhcp-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Override config via environment variables if needed
+      IRONDHCP_DB_HOST: postgres
+      IRONDHCP_DB_PORT: 5432
+      IRONDHCP_DB_NAME: irondhcp
+      IRONDHCP_DB_USER: dhcp
+      IRONDHCP_DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      # Mount configuration
+      - ./config-docker.yaml:/etc/irondhcp/config.yaml:ro
+      # Mount git repository cache (if using GitOps)
+      - git_cache:/tmp/irondhcp-git
+      # Mount any custom DHCP configs
+      - ./dhcp-config:/etc/irondhcp/dhcp:ro
+    ports:
+      # DHCP server port (requires host network mode for actual DHCP functionality)
+      - "67:67/udp"
+      # Web UI and API
+      - "8080:8080"
+      # Prometheus metrics
+      - "9090:9090"
+    networks:
+      - irondhcp-net
+    restart: unless-stopped
+    # For production DHCP, you may need host network mode:
+    # network_mode: host
+    # This allows the DHCP server to bind to the host's network interface
+
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+networks:
+  irondhcp-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  git_cache:
+    driver: local

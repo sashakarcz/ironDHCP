@@ -1,0 +1,91 @@
+# ironDHCP Configuration for Docker Deployment
+server:
+  # Network interfaces to listen on
+  # In Docker, use the container's network interface
+  interfaces:
+    - name: eth0
+      ipv4: true
+      ipv6: false
+
+  # Server identification (for HA deployments)
+  server_id: "dhcp-docker"
+
+  # High Availability / Cluster configuration
+  cluster:
+    enabled: false  # Set to true for HA deployments
+    use_read_cache: false
+
+database:
+  # PostgreSQL connection - uses Docker service name
+  connection: "postgres://dhcp:changeme@postgres:5432/irondhcp?sslmode=disable"
+
+  # Connection pool settings
+  max_connections: 20
+  min_connections: 5
+
+  # Lease write batching (performance optimization)
+  batch_writes: true
+  batch_interval: 1s
+
+observability:
+  # Prometheus metrics endpoint
+  metrics_enabled: true
+  metrics_port: 9090
+  metrics_path: /metrics
+
+  # Structured logging
+  log_level: info  # debug, info, warn, error
+  log_format: json  # json or text
+
+  # Web UI and API
+  web_enabled: true
+  web_port: 8080
+  web_auth:
+    enabled: true
+    username: admin
+    # bcrypt hash of "admin" - CHANGE THIS IN PRODUCTION!
+    password_hash: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
+# GitOps configuration (optional)
+git:
+  enabled: false  # Set to true to enable GitOps
+  repository: "https://github.com/yourorg/dhcp-config.git"
+  branch: "main"
+  config_path: "dhcp.yaml"
+  poll_interval: 60s
+  sync_timeout: 30s
+  validate_before_sync: true
+
+  auth:
+    type: "none"  # Options: token, ssh, none
+    # token: "${GIT_TOKEN}"  # Use environment variable for token
+
+# Subnet configuration
+# Add your subnets here or manage via GitOps
+subnets:
+  - network: "192.168.100.0/24"
+    description: "Docker DHCP Pool"
+    gateway: "192.168.100.1"
+    dns_servers:
+      - "8.8.8.8"
+      - "1.1.1.1"
+    lease_duration: 24h
+    max_lease_duration: 72h
+
+    # IP pools for dynamic allocation
+    pools:
+      - range_start: "192.168.100.100"
+        range_end: "192.168.100.200"
+        description: "Main pool"
+
+    # Static reservations (optional)
+    reservations:
+      - mac: "00:11:22:33:44:55"
+        ip: "192.168.100.10"
+        hostname: "server1"
+        description: "Example server"
+
+    # PXE/iPXE boot options (optional)
+    # boot:
+    #   tftp_server: "192.168.100.1"
+    #   filename: "pxelinux.0"
