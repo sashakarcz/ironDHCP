@@ -29,7 +29,7 @@ observability:
   web_enabled: true
   web_port: 8080
   web_auth:
-    enabled: true
+    enabled: false
     username: admin
     password_hash: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
 

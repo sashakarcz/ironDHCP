@@ -38,7 +38,13 @@ func (s *Store) GetLeaseByMAC(ctx context.Context, mac net.HardwareAddr, subnet 
 	}
 
 	// Parse IP, MAC, and subnet
-	lease.IP = net.ParseIP(ipStr)
+	// PostgreSQL inet type returns CIDR notation (e.g., "10.0.0.1/32")
+	// so we need to handle both plain IP and CIDR formats
+	if ip, _, err := net.ParseCIDR(ipStr); err == nil {
+		lease.IP = ip
+	} else {
+		lease.IP = net.ParseIP(ipStr)
+	}
 	lease.MAC, _ = net.ParseMAC(macStr)
 	_, lease.Subnet, _ = net.ParseCIDR(subnetStr)
 
@@ -74,7 +80,13 @@ func (s *Store) GetLeaseByIP(ctx context.Context, ip net.IP, subnet *net.IPNet) 
 	}
 
 	// Parse IP, MAC, and subnet
-	lease.IP = net.ParseIP(ipStr)
+	// PostgreSQL inet type returns CIDR notation (e.g., "10.0.0.1/32")
+	// so we need to handle both plain IP and CIDR formats
+	if ip, _, err := net.ParseCIDR(ipStr); err == nil {
+		lease.IP = ip
+	} else {
+		lease.IP = net.ParseIP(ipStr)
+	}
 	lease.MAC, _ = net.ParseMAC(macStr)
 	_, lease.Subnet, _ = net.ParseCIDR(subnetStr)
 
@@ -192,7 +204,7 @@ func (s *Store) DeclineLease(ctx context.Context, ip net.IP, subnet *net.IPNet) 
 // GetExpiredLeases returns leases that have expired
 func (s *Store) GetExpiredLeases(ctx context.Context, subnet *net.IPNet, rangeStart, rangeEnd net.IP, limit int) ([]*Lease, error) {
 	query := `
-		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
+		SELECT id, ip::text, mac::text, hostname, subnet::text, issued_at, expires_at, last_seen,
 		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		WHERE subnet = $1
@@ -212,10 +224,10 @@ func (s *Store) GetExpiredLeases(ctx context.Context, subnet *net.IPNet, rangeSt
 	var leases []*Lease
 	for rows.Next() {
 		var lease Lease
-		var ipStr, subnetStr string
+		var ipStr, macStr, subnetStr string
 
 		err := rows.Scan(
-			&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
+			&lease.ID, &ipStr, &macStr, &lease.Hostname, &subnetStr,
 			&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
 			&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 			&lease.CreatedAt, &lease.UpdatedAt,
@@ -224,7 +236,14 @@ func (s *Store) GetExpiredLeases(ctx context.Context, subnet *net.IPNet, rangeSt
 			return nil, fmt.Errorf("failed to scan lease: %w", err)
 		}
 
-		lease.IP = net.ParseIP(ipStr)
+		// PostgreSQL inet type returns CIDR notation (e.g., "10.0.0.1/32")
+		// so we need to handle both plain IP and CIDR formats
+		if ip, _, err := net.ParseCIDR(ipStr); err == nil {
+			lease.IP = ip
+		} else {
+			lease.IP = net.ParseIP(ipStr)
+		}
+		lease.MAC, _ = net.ParseMAC(macStr)
 		_, lease.Subnet, _ = net.ParseCIDR(subnetStr)
 		leases = append(leases, &lease)
 	}
@@ -266,7 +285,7 @@ func (s *Store) DeleteOldLeases(ctx context.Context, olderThan time.Duration) (i
 // GetLeaseStatistics returns aggregated statistics per subnet
 func (s *Store) GetLeaseStatistics(ctx context.Context) ([]*LeaseStatistics, error) {
 	query := `
-		SELECT subnet,
+		SELECT subnet::text,
 		       COUNT(*) FILTER (WHERE state = 'active') AS active_leases,
 		       COUNT(*) FILTER (WHERE state = 'expired') AS expired_leases,
 		       COUNT(*) FILTER (WHERE state = 'released') AS released_leases,
@@ -344,7 +363,7 @@ func (s *Store) ExpireLeases(ctx context.Context) (int64, error) {
 // GetAllLeases retrieves all leases
 func (s *Store) GetAllLeases(ctx context.Context) ([]*Lease, error) {
 	query := `
-		SELECT id, ip, mac, hostname, subnet, issued_at, expires_at, last_seen,
+		SELECT id, ip::text, mac::text, hostname, subnet::text, issued_at, expires_at, last_seen,
 		       state, client_id, vendor_class, user_class, allocated_by, created_at, updated_at
 		FROM leases
 		ORDER BY expires_at DESC
@@ -359,10 +378,10 @@ func (s *Store) GetAllLeases(ctx context.Context) ([]*Lease, error) {
 	var leases []*Lease
 	for rows.Next() {
 		var lease Lease
-		var ipStr, subnetStr string
+		var ipStr, macStr, subnetStr string
 
 		err := rows.Scan(
-			&lease.ID, &ipStr, &lease.MAC, &lease.Hostname, &subnetStr,
+			&lease.ID, &ipStr, &macStr, &lease.Hostname, &subnetStr,
 			&lease.IssuedAt, &lease.ExpiresAt, &lease.LastSeen, &lease.State,
 			&lease.ClientID, &lease.VendorClass, &lease.UserClass, &lease.AllocatedBy,
 			&lease.CreatedAt, &lease.UpdatedAt,
@@ -371,7 +390,14 @@ func (s *Store) GetAllLeases(ctx context.Context) ([]*Lease, error) {
 			return nil, fmt.Errorf("failed to scan lease: %w", err)
 		}
 
-		lease.IP = net.ParseIP(ipStr)
+		// PostgreSQL inet type returns CIDR notation (e.g., "10.0.0.1/32")
+		// so we need to handle both plain IP and CIDR formats
+		if ip, _, err := net.ParseCIDR(ipStr); err == nil {
+			lease.IP = ip
+		} else {
+			lease.IP = net.ParseIP(ipStr)
+		}
+		lease.MAC, _ = net.ParseMAC(macStr)
 		_, lease.Subnet, _ = net.ParseCIDR(subnetStr)
 		leases = append(leases, &lease)
 	}
