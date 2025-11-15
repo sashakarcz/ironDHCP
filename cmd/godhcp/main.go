@@ -38,11 +38,11 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Println("ironDHCP v1.0.0")
+		fmt.Print("ironDHCP v1.0.0\n")
 		os.Exit(0)
 	}
 
-	fmt.Println(banner)
+	fmt.Print(banner)
 
 	// Load configuration
 	cfg, err := config.Load(*configFile)
