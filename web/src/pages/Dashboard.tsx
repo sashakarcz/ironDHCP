@@ -149,7 +149,7 @@ export function Dashboard() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">Version</span>
-              <span className="text-white">v0.2.0</span>
+              <span className="text-white">v1.0.0</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Database Status</span>

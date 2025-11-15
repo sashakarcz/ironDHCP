@@ -94,7 +94,7 @@ export function Login() {
 
         {/* Footer */}
         <p className="mt-8 text-center text-sm text-gray-500">
-          ironDHCP v0.2.0 - Phase 2: GitOps & Observability
+          ironDHCP v1.0.0
         </p>
       </div>
     </div>
