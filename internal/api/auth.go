@@ -209,21 +209,30 @@ func (s *Server) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Get token from Authorization header
+		var token string
+
+		// Try to get token from Authorization header first
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			// Extract token (format: "Bearer <token>")
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		// If no token in header, try query parameter (for SSE compatibility)
+		if token == "" {
+			token = r.URL.Query().Get("token")
+		}
+
+		// If still no token, reject
+		if token == "" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// Extract token (format: "Bearer <token>")
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
-			return
-		}
-
-		token := parts[1]
+		// Validate token
 		if !s.authManager.ValidateToken(token) {
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return

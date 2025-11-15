@@ -30,21 +30,21 @@ COPY go.mod go.sum ./
 # Download dependencies
 RUN go mod download
 
-# Copy source code
+# Copy source code (includes migrations in internal/storage/migrations/)
 COPY . .
 
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /app/web/dist ./web/dist
 RUN cp -r web/dist internal/api/dist
 
-# Build the binary
+# Build the binary (migrations and frontend are embedded via go:embed)
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o irondhcp ./cmd/godhcp
 
 # Stage 3: Runtime image
 FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+# Install runtime dependencies (including git for GitOps)
+RUN apk add --no-cache ca-certificates tzdata git openssh-client
 
 # Create non-root user (but we'll need root for DHCP port 67)
 RUN addgroup -g 1000 irondhcp && \
@@ -52,11 +52,8 @@ RUN addgroup -g 1000 irondhcp && \
 
 WORKDIR /app
 
-# Copy binary from builder
+# Copy binary from builder (migrations are now embedded)
 COPY --from=go-builder /app/irondhcp .
-
-# Copy migrations
-COPY --from=go-builder /app/migrations ./migrations
 
 # Create config directory
 RUN mkdir -p /etc/irondhcp /var/lib/irondhcp && \

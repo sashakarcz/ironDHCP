@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Activity as ActivityIcon, Wifi, WifiOff, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { api } from '../api/client';
 
 interface ActivityEvent {
   id: string;
@@ -37,30 +38,21 @@ export default function Activity() {
   const eventsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Connect to SSE endpoint
-    const eventSource = new EventSource('/api/v1/activity/stream');
+    // Connect to SSE endpoint using the API client
+    setIsConnected(true);
 
-    eventSource.onopen = () => {
-      console.log('SSE connection opened');
-      setIsConnected(true);
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('SSE error:', error);
-      setIsConnected(false);
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+    const cleanup = api.createActivityLogStream(
+      (data) => {
         setEvents((prev) => [...prev.slice(-99), data]); // Keep last 100 events
-      } catch (error) {
-        console.error('Failed to parse event:', error);
+      },
+      (error) => {
+        console.error('SSE error:', error);
+        setIsConnected(false);
       }
-    };
+    );
 
     return () => {
-      eventSource.close();
+      cleanup();
       setIsConnected(false);
     };
   }, []);
@@ -98,14 +90,14 @@ export default function Activity() {
     <div>
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Activity Log</h1>
-            <p className="mt-2 text-gray-600">Real-time DHCP server events</p>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Activity Log</h1>
+            <p className="mt-2 text-sm text-gray-600 sm:text-base">Real-time DHCP server events</p>
           </div>
           <div className="flex items-center gap-2">
             <div
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg sm:px-4 ${
                 isConnected ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
               }`}
             >
@@ -114,7 +106,7 @@ export default function Activity() {
                   isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
                 }`}
               />
-              <span className="text-sm font-medium">
+              <span className="text-xs font-medium sm:text-sm">
                 {isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
@@ -123,28 +115,28 @@ export default function Activity() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-gray-900">{events.length}</div>
-          <div className="text-sm text-gray-600">Total Events</div>
+      <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4 md:grid-cols-4">
+        <div className="p-3 bg-white rounded-lg shadow sm:p-4">
+          <div className="text-xl font-bold text-gray-900 sm:text-2xl">{events.length}</div>
+          <div className="text-xs text-gray-600 sm:text-sm">Total Events</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-blue-600">
+        <div className="p-3 bg-white rounded-lg shadow sm:p-4">
+          <div className="text-xl font-bold text-blue-600 sm:text-2xl">
             {events.filter(e => e.type === 'dhcp_discover').length}
           </div>
-          <div className="text-sm text-gray-600">Discoveries</div>
+          <div className="text-xs text-gray-600 sm:text-sm">Discoveries</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-green-600">
+        <div className="p-3 bg-white rounded-lg shadow sm:p-4">
+          <div className="text-xl font-bold text-green-600 sm:text-2xl">
             {events.filter(e => e.type === 'dhcp_ack').length}
           </div>
-          <div className="text-sm text-gray-600">ACKs</div>
+          <div className="text-xs text-gray-600 sm:text-sm">ACKs</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-orange-600">
+        <div className="p-3 bg-white rounded-lg shadow sm:p-4">
+          <div className="text-xl font-bold text-orange-600 sm:text-2xl">
             {events.filter(e => e.type === 'dhcp_release').length}
           </div>
-          <div className="text-sm text-gray-600">Releases</div>
+          <div className="text-xs text-gray-600 sm:text-sm">Releases</div>
         </div>
       </div>
 
@@ -166,7 +158,7 @@ export default function Activity() {
         <div
           ref={eventsContainerRef}
           onScroll={handleScroll}
-          className="p-6 h-[600px] overflow-y-auto space-y-2"
+          className="p-3 h-[400px] sm:h-[500px] md:h-[600px] sm:p-6 overflow-y-auto space-y-2"
         >
           {events.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">

@@ -2,12 +2,15 @@ package storage
 
 import (
 	"context"
+	"embed"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 // EnsureDatabase ensures the database exists, creating it if necessary
 func EnsureDatabase(ctx context.Context, connectionString string) error {
@@ -135,8 +138,8 @@ func runMigrations(ctx context.Context, conn *pgx.Conn) error {
 	}
 
 	for _, migrationFile := range migrations {
-		// Read migration file
-		migrationSQL, err := os.ReadFile(migrationFile)
+		// Read migration file from embedded FS
+		migrationSQL, err := migrationsFS.ReadFile(migrationFile)
 		if err != nil {
 			return fmt.Errorf("failed to read migration file %s: %w", migrationFile, err)
 		}

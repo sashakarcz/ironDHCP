@@ -26,7 +26,7 @@ const banner = `
  |_|_| \___/_||_|  |___/|_||_|\___|_|
 
   Simple, Production-Ready DHCP Server
-  Version: 0.2.0 (Phase 2: GitOps & Observability)
+  Version: 1.0.0
 `
 
 var (
@@ -38,7 +38,7 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Println("ironDHCP v0.2.0 (Phase 2: GitOps & Observability)")
+		fmt.Println("ironDHCP v1.0.0")
 		os.Exit(0)
 	}
 
