@@ -273,10 +273,30 @@ func (s *Server) cacheCleanupWorker(ctx context.Context) {
 
 // findSubnetForRequest determines which subnet a request belongs to
 func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error) {
+	logger.Debug().
+		Int("subnet_count", len(s.subnets)).
+		Str("giaddr", req.GatewayIPAddr.String()).
+		Str("ciaddr", req.ClientIPAddr.String()).
+		Msg("Finding subnet for request")
+
 	// Check relay agent IP (GiAddr)
 	if !req.GatewayIPAddr.IsUnspecified() {
-		for _, subnet := range s.subnets {
+		logger.Debug().
+			Str("giaddr", req.GatewayIPAddr.String()).
+			Msg("Checking relay agent IP against subnets")
+
+		for subnetKey, subnet := range s.subnets {
+			logger.Debug().
+				Str("subnet_key", subnetKey).
+				Str("subnet_network", subnet.Network.String()).
+				Str("giaddr", req.GatewayIPAddr.String()).
+				Bool("contains", subnet.Network.Contains(req.GatewayIPAddr)).
+				Msg("Checking subnet match")
+
 			if subnet.Network.Contains(req.GatewayIPAddr) {
+				logger.Debug().
+					Str("subnet", subnet.Network.String()).
+					Msg("Found matching subnet via giaddr")
 				return subnet, nil
 			}
 		}
@@ -284,8 +304,22 @@ func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error)
 
 	// Check client IP (CiAddr) for renewals
 	if !req.ClientIPAddr.IsUnspecified() {
-		for _, subnet := range s.subnets {
+		logger.Debug().
+			Str("ciaddr", req.ClientIPAddr.String()).
+			Msg("Checking client IP against subnets")
+
+		for subnetKey, subnet := range s.subnets {
+			logger.Debug().
+				Str("subnet_key", subnetKey).
+				Str("subnet_network", subnet.Network.String()).
+				Str("ciaddr", req.ClientIPAddr.String()).
+				Bool("contains", subnet.Network.Contains(req.ClientIPAddr)).
+				Msg("Checking subnet match")
+
 			if subnet.Network.Contains(req.ClientIPAddr) {
+				logger.Debug().
+					Str("subnet", subnet.Network.String()).
+					Msg("Found matching subnet via ciaddr")
 				return subnet, nil
 			}
 		}
@@ -295,9 +329,18 @@ func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error)
 	// For now, return the first subnet if we only have one configured
 	if len(s.subnets) == 1 {
 		for _, subnet := range s.subnets {
+			logger.Debug().
+				Str("subnet", subnet.Network.String()).
+				Msg("Using single configured subnet")
 			return subnet, nil
 		}
 	}
+
+	logger.Warn().
+		Int("subnet_count", len(s.subnets)).
+		Str("giaddr", req.GatewayIPAddr.String()).
+		Str("ciaddr", req.ClientIPAddr.String()).
+		Msg("No matching subnet found")
 
 	return nil, fmt.Errorf("cannot determine subnet for request")
 }
