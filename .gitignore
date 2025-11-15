@@ -9,12 +9,18 @@ bin/
 *.test
 *.out
 
+# Frontend build
+web/dist/
+web/node_modules/
+internal/api/dist/
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.claude/
 
 # OS files
 .DS_Store
@@ -30,3 +36,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporary files
+CHANGES.md
+TODO.md

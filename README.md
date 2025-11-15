@@ -2,6 +2,8 @@
 
 A modern, production-ready DHCP server written in Go with GitOps-first configuration and embedded web interface.
 
+Version 1.0.0
+
 ## Overview
 
 ironDHCP is a high-performance DHCP server designed for modern infrastructure with GitOps integration, real-time observability, and a built-in web UI. Everything runs in a single binary with no external dependencies except PostgreSQL.
@@ -26,13 +28,14 @@ ironDHCP is a high-performance DHCP server designed for modern infrastructure wi
 
 ### Web Interface
 - Modern React SPA with dark theme
+- Mobile-responsive design with hamburger menu
 - Real-time dashboard with statistics
 - Lease browser with search and filtering
 - Subnet overview with utilization metrics
 - Live activity log with Server-Sent Events
 - Git sync status and history
 - Bearer token authentication
-- Embedded in single binary (no external files)
+- Fully embedded in single binary (no external files)
 
 ### Observability
 - Prometheus metrics endpoint
@@ -50,7 +53,21 @@ ironDHCP is a high-performance DHCP server designed for modern infrastructure wi
 - **Logging**: zerolog (structured JSON)
 - **Metrics**: Prometheus client
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
-- **Deployment**: Single binary with embedded assets
+- **Deployment**: Single binary with embedded web UI and SQL migrations (only config.yaml required)
+
+### Embedded Architecture
+
+ironDHCP uses Go's `embed` directive to bundle all static assets into the compiled binary:
+
+- **Web UI**: Frontend built with Vite is embedded via `//go:embed all:dist` in `internal/api/handlers.go`
+- **SQL Migrations**: Database migration files are embedded via `//go:embed migrations/*.sql` in `internal/storage/init.go`
+- **No External Files**: The binary contains everything needed except the configuration file
+
+This means you can deploy ironDHCP with just two files:
+1. The `irondhcp` binary
+2. Your `config.yaml`
+
+All web assets, JavaScript, CSS, and database migrations are compiled into the binary at build time.
 
 ## Quick Start
 
@@ -274,7 +291,7 @@ sudo ./bin/irondhcp --config config.yaml \
 
 Access the web interface at `http://localhost:8080` (or your configured API address).
 
-The web UI is a modern, responsive React application with a dark theme, embedded directly in the binary.
+The web UI is a modern, mobile-responsive React application with a dark theme, embedded directly in the binary. Features a collapsible sidebar navigation on mobile devices with smooth animations.
 
 #### Dashboard
 
@@ -286,7 +303,7 @@ Real-time statistics and system overview:
 - Static reservations count
 - System uptime
 
-![dashboard](docs/dashboard.png)
+![Dashboard Screenshot](docs/dashboard.png)
 
 #### Leases
 
@@ -297,13 +314,13 @@ Browse all DHCP leases (dynamic and static) with search and filtering:
 - Sort by any column
 - Real-time updates
 
-![leases](docs/leases.png)
+**Lease States:**
+- **Static**: Permanent MAC-to-IP reservation
+- **Active**: Currently active lease
+- **Expired**: Lease has expired
+- **Released**: Client released the lease
 
-#### **Lease States:**
--  **Static**: Permanent MAC-to-IP reservation
--  **Active**: Currently active lease
--  **Expired**: Lease has expired
--  **Released**: Client released the lease
+![Leases Screenshot](docs/leases.png)
 
 #### Subnets
 
@@ -314,7 +331,7 @@ View subnet configuration and utilization metrics:
 - Active leases vs total IPs
 - Utilization percentage with visual progress bar
 
-![subnets](docs/subnets.png)
+![Subnets Screenshot](docs/subnets.png)
 
 #### Reservations
 
@@ -324,7 +341,7 @@ View and manage static MAC-to-IP reservations:
 - PXE boot configuration (TFTP server, boot filename)
 - When GitOps is enabled, managed via Git
 
-![config](docs/config.png)
+![Config Screenshot](docs/config.png)
 
 #### Activity Log
 
@@ -334,7 +351,7 @@ Real-time activity stream showing DHCP events as they occur:
 - Detailed event information
 - Auto-scroll to latest events
 
-![config](docs/congfig.png)
+![Activity Screenshot](docs/activity.png)
 
 #### Git Sync (GitOps)
 
@@ -345,15 +362,16 @@ View Git repository status and sync history:
 - Manual sync trigger button
 - Changes applied per sync
 
-![git](docs/git.png)
+![Git Sync Screenshot](docs/git.png)
 
 **Features:**
-- Responsive design (works on desktop, tablet, mobile)
-- Dark theme with syntax highlighting
+- Fully responsive design with mobile-optimized layout
+- Hamburger menu navigation on mobile devices
+- Dark theme optimized for readability
 - Real-time updates without page refresh
 - Filter, search, and sort capabilities
-- Bearer token authentication with auto-refresh
-- Embedded in single binary (no external dependencies)
+- Bearer token authentication with 24-hour sessions
+- Embedded in single binary with no external dependencies
 
 ### REST API
 
@@ -429,26 +447,26 @@ irondhcp/
 │   ├── godhcp/          # Main application entry point
 │   └── hashpw/          # Password hashing utility
 ├── internal/
-│   ├── api/             # REST API and web server
+│   ├── api/             # REST API and web server (embedded web UI)
 │   ├── config/          # Configuration parsing
 │   ├── dhcp/            # DHCP server and handlers
 │   ├── events/          # SSE event broadcaster
 │   ├── gitops/          # Git repository and sync logic
 │   ├── logger/          # Structured logging setup
 │   ├── metrics/         # Prometheus metrics
-│   └── storage/         # PostgreSQL data layer
-├── migrations/          # Database migrations
+│   └── storage/         # PostgreSQL data layer (embedded migrations)
+│       └── migrations/  # SQL migration files (embedded in binary)
 ├── web/                 # React frontend source
 │   ├── src/
 │   │   ├── api/        # API client
 │   │   ├── components/ # React components
 │   │   ├── pages/      # Page components
 │   │   └── types/      # TypeScript types
-│   └── dist/           # Built frontend (embedded in binary)
+│   └── dist/           # Built frontend (git-ignored, embedded in binary)
 ├── deployments/
 │   └── docker/         # Docker Compose for development
 ├── Makefile            # Build automation
-└── example-config.yaml # Example configuration
+└── config.yaml         # Configuration file (only external dependency)
 ```
 
 ### Building
@@ -684,6 +702,7 @@ rate(irondhcp_git_syncs_total[10m])
 - **Database**: Connection pooling with configurable max connections
 - **Concurrency**: Goroutine-per-request model with context cancellation
 - **Memory**: ~50MB base + ~1KB per cached lease
+- **Binary Size**: 23MB (includes web UI and SQL migrations)
 - **Throughput**: Tested with 1000+ leases/second on modern hardware
 
 ## Troubleshooting
@@ -714,9 +733,9 @@ sudo setcap cap_net_raw=+ep ./bin/irondhcp
 
 **Check**:
 1. API server is running: `curl http://localhost:8080/api/v1/health`
-2. Frontend was built: `ls internal/api/dist/index.html`
-3. Rebuild if missing: `make build-web`
-4. Check browser console for errors
+2. Binary was built with embedded frontend: `make build-all`
+3. Check browser console for errors
+4. Verify build artifacts: Frontend and migrations are embedded in binary at build time
 
 ### Git Sync Failing
 
