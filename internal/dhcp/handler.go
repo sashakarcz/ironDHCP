@@ -20,11 +20,14 @@ type Handler struct {
 func (h *Handler) Handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) {
 	ctx := context.Background()
 
-	// Log request
+	// Log request with relay information for debugging
 	logger.Debug().
 		Str("type", req.MessageType().String()).
 		Str("mac", req.ClientHWAddr.String()).
 		Str("xid", fmt.Sprintf("%x", req.TransactionID)).
+		Str("giaddr", req.GatewayIPAddr.String()).
+		Str("ciaddr", req.ClientIPAddr.String()).
+		Str("peer", peer.String()).
 		Msg("Received DHCP request")
 
 	// Route to appropriate handler based on message type

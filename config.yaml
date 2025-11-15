@@ -48,7 +48,7 @@ observability:
 # GitOps configuration (Phase 2)
 # Enable this to sync configuration from a Git repository
 git:
-  enabled: true  # Disabled for testing without a real repository
+  enabled: true  # Pull subnets from Git repository
   repository: "https://github.com/sashakarcz/irondhcp-config.git"
   branch: "main"
   config_path: "dhcp.yaml"  # Path to config file within repo
@@ -61,3 +61,7 @@ git:
     type: "none"  # Options: token, ssh, none
     token: "${GIT_TOKEN}"  # Use environment variable for token
     # ssh_key_path: "/path/to/ssh/key"  # For SSH auth
+
+# Subnet configuration
+# Subnets are managed via GitOps from the repository above
+# Local subnets can be defined here but will be overridden by GitOps
