@@ -157,7 +157,7 @@ vim config.yaml
 
 5. Run the server:
 ```bash
-sudo ./bin/irondhcp --config config.yaml
+sudo ./bin/irondhcp -config config.yaml
 ```
 
 Note: DHCP requires root privileges or CAP_NET_RAW capability to bind to port 67.
@@ -197,7 +197,7 @@ docker run -d \
 
 4. Run ironDHCP:
 ```bash
-sudo irondhcp --config config.yaml
+sudo irondhcp -config config.yaml
 ```
 
 5. Access the web UI at http://localhost:8080
@@ -210,7 +210,7 @@ Default credentials (if web authentication is enabled):
 
 For testing the web UI without root privileges:
 ```bash
-irondhcp --config config.yaml
+irondhcp -config config.yaml
 ```
 
 The API server will start on port 8080 even if DHCP binding fails.
@@ -357,7 +357,7 @@ web_auth:
 
 With installed binary:
 ```bash
-sudo irondhcp --config config.yaml
+sudo irondhcp -config config.yaml
 ```
 
 As a systemd service (Linux):
@@ -372,7 +372,7 @@ Wants=postgresql.service
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/local/bin/irondhcp --config /etc/irondhcp/config.yaml
+ExecStart=/usr/local/bin/irondhcp -config /etc/irondhcp/config.yaml
 Restart=always
 RestartSec=10
 
@@ -857,10 +857,10 @@ Example manifests are available in `deployments/kubernetes/` (when added).
 
 **Solution**: Run with root privileges or grant CAP_NET_RAW:
 ```bash
-sudo ./bin/irondhcp --config config.yaml
+sudo ./bin/irondhcp -config config.yaml
 # OR
 sudo setcap cap_net_raw=+ep ./bin/irondhcp
-./bin/irondhcp --config config.yaml
+./bin/irondhcp -config config.yaml
 ```
 
 ### Database Connection Failed
