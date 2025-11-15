@@ -21,10 +21,11 @@ help:
 # Build the frontend
 build-web:
 	@echo "Building frontend..."
-	@if [ ! -d "web/node_modules" ]; then \
+	@if [ ! -d "web/node_modules" ] || [ ! -f "web/node_modules/.package-lock.json" ]; then \
 		echo "Installing npm dependencies..."; \
 		cd web && npm install; \
 	fi
+	@echo "Building with Vite..."
 	cd web && npm run build
 	@echo "Copying frontend build to API dist..."
 	rm -rf internal/api/dist
