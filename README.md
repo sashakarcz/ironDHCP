@@ -812,19 +812,6 @@ See "Running the Server" section above for systemd service setup.
 
 #### 2. Docker Deployment
 
-Using the official Docker image:
-
-```bash
-# Pull the image (when available)
-docker pull ghcr.io/sashakarcz/irondhcp:latest
-
-# Or build locally
-docker build -t irondhcp:latest .
-
-# Run with docker-compose
-docker-compose up -d
-```
-
 See `docker-compose.yml` for a complete setup including PostgreSQL.
 
 #### 3. Kubernetes Deployment
