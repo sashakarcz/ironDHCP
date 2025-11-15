@@ -360,16 +360,6 @@ With installed binary:
 sudo irondhcp --config config.yaml
 ```
 
-With custom database settings:
-```bash
-sudo irondhcp --config config.yaml \
-  --db-host postgres.example.com \
-  --db-port 5432 \
-  --db-name dhcp \
-  --db-user dhcp_user \
-  --db-password secret
-```
-
 As a systemd service (Linux):
 
 Create `/etc/systemd/system/irondhcp.service`:
