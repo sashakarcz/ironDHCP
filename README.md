@@ -71,11 +71,50 @@ All web assets, JavaScript, CSS, and database migrations are compiled into the b
 
 ## Quick Start
 
-### Prerequisites
+### Installation
 
+#### Option 1: Download Pre-built Binary (Recommended)
+
+Download the latest release for your platform:
+
+```bash
+# Linux AMD64
+wget https://github.com/sashakarcz/irondhcp/releases/latest/download/irondhcp-linux-amd64
+chmod +x irondhcp-linux-amd64
+sudo mv irondhcp-linux-amd64 /usr/local/bin/irondhcp
+
+# Linux ARM64
+wget https://github.com/sashakarcz/irondhcp/releases/latest/download/irondhcp-linux-arm64
+chmod +x irondhcp-linux-arm64
+sudo mv irondhcp-linux-arm64 /usr/local/bin/irondhcp
+
+# macOS AMD64
+wget https://github.com/sashakarcz/irondhcp/releases/latest/download/irondhcp-darwin-amd64
+chmod +x irondhcp-darwin-amd64
+sudo mv irondhcp-darwin-amd64 /usr/local/bin/irondhcp
+
+# macOS ARM64 (Apple Silicon)
+wget https://github.com/sashakarcz/irondhcp/releases/latest/download/irondhcp-darwin-arm64
+chmod +x irondhcp-darwin-arm64
+sudo mv irondhcp-darwin-arm64 /usr/local/bin/irondhcp
+```
+
+Verify the download (optional but recommended):
+
+```bash
+# Download checksums
+wget https://github.com/sashakarcz/irondhcp/releases/latest/download/checksums.txt
+
+# Verify checksum
+sha256sum -c checksums.txt --ignore-missing
+```
+
+#### Option 2: Build from Source
+
+Prerequisites:
 - Go 1.23+
+- Node.js 18+
 - PostgreSQL 12+
-- Node.js 18+ (for building frontend)
 - Docker and Docker Compose (optional, for dev database)
 
 ### Development Setup
@@ -107,14 +146,23 @@ This will:
 - Embed frontend in Go binary
 - Compile the irondhcp binary
 
-4. Run the server:
+4. Create your configuration file:
 ```bash
-sudo ./bin/irondhcp --config example-config.yaml
+# Copy example config
+cp example-config.yaml config.yaml
+
+# Edit configuration
+vim config.yaml
+```
+
+5. Run the server:
+```bash
+sudo ./bin/irondhcp --config config.yaml
 ```
 
 Note: DHCP requires root privileges or CAP_NET_RAW capability to bind to port 67.
 
-5. Access the web UI:
+6. Access the web UI:
 ```
 http://localhost:8080
 ```
@@ -123,11 +171,46 @@ Default credentials (if web_auth is enabled):
 - Username: admin
 - Password: admin
 
+### Quick Setup with Pre-built Binary
+
+1. Download the binary for your platform (see Installation section above)
+
+2. Create a configuration file:
+```bash
+# Download example config
+wget https://raw.githubusercontent.com/sashakarcz/irondhcp/main/config.yaml
+
+# Edit with your settings
+vim config.yaml
+```
+
+3. Set up PostgreSQL (using Docker):
+```bash
+docker run -d \
+  --name irondhcp-postgres \
+  -e POSTGRES_DB=irondhcp \
+  -e POSTGRES_USER=dhcp \
+  -e POSTGRES_PASSWORD=your_secure_password \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+4. Run ironDHCP:
+```bash
+sudo irondhcp --config config.yaml
+```
+
+5. Access the web UI at http://localhost:8080
+
+Default credentials (if web authentication is enabled):
+- Username: admin
+- Password: admin (change this in production!)
+
 ### Testing Without DHCP
 
 For testing the web UI without root privileges:
 ```bash
-./bin/irondhcp --config example-config.yaml
+irondhcp --config config.yaml
 ```
 
 The API server will start on port 8080 even if DHCP binding fails.
@@ -272,19 +355,47 @@ web_auth:
 
 ### Running the Server
 
-Standard mode:
+With installed binary:
 ```bash
-sudo ./bin/irondhcp --config config.yaml
+sudo irondhcp --config config.yaml
 ```
 
-With custom database:
+With custom database settings:
 ```bash
-sudo ./bin/irondhcp --config config.yaml \
+sudo irondhcp --config config.yaml \
   --db-host postgres.example.com \
   --db-port 5432 \
   --db-name dhcp \
   --db-user dhcp_user \
   --db-password secret
+```
+
+As a systemd service (Linux):
+
+Create `/etc/systemd/system/irondhcp.service`:
+```ini
+[Unit]
+Description=ironDHCP Server
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/irondhcp --config /etc/irondhcp/config.yaml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable irondhcp
+sudo systemctl start irondhcp
+sudo systemctl status irondhcp
 ```
 
 ### Web UI
@@ -694,6 +805,49 @@ rate(irondhcp_git_syncs_total[10m])
 - Enable branch protection rules
 - Review all configuration changes before merging
 - Audit trail tracks all sync operations
+
+## Production Deployment
+
+### Binary Information
+- **Size**: 23MB (includes embedded web UI and SQL migrations)
+- **Platforms**: Linux (amd64, arm64), macOS (amd64, arm64)
+- **Dependencies**: None (except PostgreSQL database)
+- **Configuration**: Single YAML file
+
+### Deployment Options
+
+#### 1. Systemd Service (Recommended for Linux)
+
+See "Running the Server" section above for systemd service setup.
+
+#### 2. Docker Deployment
+
+Using the official Docker image:
+
+```bash
+# Pull the image (when available)
+docker pull ghcr.io/sashakarcz/irondhcp:latest
+
+# Or build locally
+docker build -t irondhcp:latest .
+
+# Run with docker-compose
+docker-compose up -d
+```
+
+See `docker-compose.yml` for a complete setup including PostgreSQL.
+
+#### 3. Kubernetes Deployment
+
+Example manifests are available in `deployments/kubernetes/` (when added).
+
+### System Requirements
+
+- **CPU**: 1 core minimum, 2+ cores recommended
+- **Memory**: 512MB minimum, 1GB+ recommended
+- **Disk**: 100MB for binary, space for PostgreSQL database
+- **Network**: UDP port 67 (DHCP), TCP port 8080 (API/Web UI)
+- **OS**: Linux, macOS, or any platform supporting Go binaries
 
 ## Performance
 

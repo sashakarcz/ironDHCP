@@ -76,19 +76,57 @@ First stable release of ironDHCP - a modern, production-ready DHCP server with G
 - Only external file needed: config.yaml
 
 ### Installation
+
+#### Linux AMD64
 ```bash
-# Download binary
-wget https://github.com/sashakarcz/irondhcp/releases/download/v1.0.0/irondhcp
+wget https://github.com/sashakarcz/irondhcp/releases/download/v1.0.0/irondhcp-linux-amd64
+chmod +x irondhcp-linux-amd64
+sudo mv irondhcp-linux-amd64 /usr/local/bin/irondhcp
+```
 
-# Make executable
-chmod +x irondhcp
+#### Linux ARM64
+```bash
+wget https://github.com/sashakarcz/irondhcp/releases/download/v1.0.0/irondhcp-linux-arm64
+chmod +x irondhcp-linux-arm64
+sudo mv irondhcp-linux-arm64 /usr/local/bin/irondhcp
+```
 
-# Create config
-cp example-config.yaml config.yaml
-# Edit config.yaml with your settings
+#### macOS AMD64
+```bash
+wget https://github.com/sashakarcz/irondhcp/releases/download/v1.0.0/irondhcp-darwin-amd64
+chmod +x irondhcp-darwin-amd64
+sudo mv irondhcp-darwin-amd64 /usr/local/bin/irondhcp
+```
+
+#### macOS ARM64 (Apple Silicon)
+```bash
+wget https://github.com/sashakarcz/irondhcp/releases/download/v1.0.0/irondhcp-darwin-arm64
+chmod +x irondhcp-darwin-arm64
+sudo mv irondhcp-darwin-arm64 /usr/local/bin/irondhcp
+```
+
+#### Verify Installation
+```bash
+# Download checksums
+wget https://github.com/sashakarcz/irondhcp/releases/download/v1.0.0/checksums.txt
+
+# Verify checksum
+sha256sum -c checksums.txt --ignore-missing
+
+# Check version
+irondhcp --version
+```
+
+#### Quick Start
+```bash
+# Download example config
+wget https://raw.githubusercontent.com/sashakarcz/irondhcp/main/config.yaml
+
+# Edit configuration
+vim config.yaml
 
 # Run
-sudo ./irondhcp --config config.yaml
+sudo irondhcp --config config.yaml
 ```
 
 ## Breaking Changes from v0.2.0
