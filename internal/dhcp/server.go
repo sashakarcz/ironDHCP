@@ -191,6 +191,75 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
+// ReloadSubnets reloads the subnet configuration from a new config
+func (s *Server) ReloadSubnets(cfg *config.Config) error {
+	logger.Info().
+		Int("subnet_count", len(cfg.Subnets)).
+		Msg("Reloading subnet configuration")
+
+	// Build new subnet map
+	newSubnets := make(map[string]*SubnetConfig)
+	for _, subnetCfg := range cfg.Subnets {
+		_, network, err := net.ParseCIDR(subnetCfg.Network)
+		if err != nil {
+			return fmt.Errorf("invalid subnet %s: %w", subnetCfg.Network, err)
+		}
+
+		// Parse DNS servers
+		var dnsServers []net.IP
+		for _, dnsStr := range subnetCfg.DNSServers {
+			dnsServers = append(dnsServers, net.ParseIP(dnsStr))
+		}
+
+		// Convert pools
+		var pools []*PoolConfig
+		for _, poolCfg := range subnetCfg.Pools {
+			pools = append(pools, &PoolConfig{
+				RangeStart: poolCfg.RangeStart,
+				RangeEnd:   poolCfg.RangeEnd,
+			})
+		}
+
+		// Extract boot settings from the subnet config
+		var tftpServer, bootFilename string
+		if subnetCfg.Boot != nil {
+			tftpServer = subnetCfg.Boot.TFTPServer
+			bootFilename = subnetCfg.Boot.Filename
+		}
+
+		subnet := &SubnetConfig{
+			Network:          network,
+			Description:      subnetCfg.Description,
+			Gateway:          net.ParseIP(subnetCfg.Gateway),
+			DNSServers:       dnsServers,
+			LeaseDuration:    subnetCfg.LeaseDuration,
+			MaxLeaseDuration: subnetCfg.MaxLeaseDuration,
+			Options:          subnetCfg.Options,
+			TFTPServer:       tftpServer,
+			BootFilename:     bootFilename,
+			Pools:            pools,
+		}
+
+		newSubnets[network.String()] = subnet
+
+		logger.Debug().
+			Str("network", network.String()).
+			Str("description", subnet.Description).
+			Str("gateway", subnet.Gateway.String()).
+			Int("pools", len(pools)).
+			Msg("Loaded subnet")
+	}
+
+	// Atomically replace subnets
+	s.subnets = newSubnets
+
+	logger.Info().
+		Int("subnet_count", len(newSubnets)).
+		Msg("Successfully reloaded subnet configuration")
+
+	return nil
+}
+
 // expiryWorker periodically expires old leases
 func (s *Server) expiryWorker(ctx context.Context) {
 	defer s.wg.Done()

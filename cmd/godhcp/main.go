@@ -170,12 +170,20 @@ func main() {
 			logger.Fatal().Err(err).Msg("Failed to start API server")
 		}
 
-		// Set GitOps reload function to update API server config
-		// This must be set BEFORE starting the poller so the initial sync updates the API server
+		// Set GitOps reload function to update API server config and DHCP server subnets
+		// This must be set BEFORE starting the poller so the initial sync updates both servers
 		if syncService != nil {
 			syncService.SetReloadFunc(func(newCfg *config.Config) error {
 				apiServer.UpdateConfig(newCfg)
-				// TODO: Also reload DHCP server when implemented
+
+				// Reload DHCP server subnets if server is running
+				if dhcpServer != nil {
+					if err := dhcpServer.ReloadSubnets(newCfg); err != nil {
+						logger.Error().Err(err).Msg("Failed to reload DHCP server subnets")
+						return fmt.Errorf("failed to reload DHCP server subnets: %w", err)
+					}
+				}
+
 				return nil
 			})
 		}
