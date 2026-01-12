@@ -24,6 +24,7 @@ type Server struct {
 	httpServer  *http.Server
 	port        int
 	config      *config.Config
+	startTime   time.Time
 }
 
 // Config holds API server configuration
@@ -42,6 +43,7 @@ func New(cfg Config, store *storage.Store, poller *gitops.Poller, broadcaster *e
 		authManager: NewAuthManager(cfg.WebAuth),
 		port:        cfg.Port,
 		config:      dhcpConfig,
+		startTime:   time.Now(),
 	}
 }
 

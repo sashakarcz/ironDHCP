@@ -155,7 +155,7 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request) {
 		TotalSubnets:      len(stats),
 		TotalReservations: len(reservations),
 		TotalAvailableIPs: totalAvailableIPs,
-		Uptime:            "N/A", // TODO: Track uptime
+		Uptime:            time.Since(s.startTime).Round(time.Second).String(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
