@@ -1,9 +1,10 @@
 package main
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -14,14 +15,18 @@ func main() {
 	}
 
 	password := os.Args[1]
-	hash := sha256.Sum256([]byte(password))
-	hashStr := fmt.Sprintf("%x", hash)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Printf("Error hashing password: %v\n", err)
+		os.Exit(1)
+	}
+	hashStr := string(bytes)
 
 	fmt.Printf("Password: %s\n", password)
-	fmt.Printf("SHA-256 Hash: %s\n", hashStr)
+	fmt.Printf("Bcrypt Hash: %s\n", hashStr)
 	fmt.Println("\nAdd this to your config:")
 	fmt.Printf("  web_auth:\n")
 	fmt.Printf("    enabled: true\n")
 	fmt.Printf("    username: admin\n")
-	fmt.Printf("    password_hash: \"%s\"\n", hashStr)
+	fmt.Printf("    password_hash: '%s'\n", hashStr)
 }

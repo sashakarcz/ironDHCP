@@ -9,6 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/zerolog v1.31.0
+	golang.org/x/crypto v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -43,7 +44,6 @@ require (
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect

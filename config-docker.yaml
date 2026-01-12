@@ -34,7 +34,7 @@ observability:
   metrics_path: /metrics
 
   # Structured logging
-  log_level: info  # debug, info, warn, error
+  log_level: debug  # debug, info, warn, error
   log_format: json  # json or text
 
   # Web UI and API
@@ -44,12 +44,12 @@ observability:
     enabled: true
     username: admin
     # bcrypt hash of "admin" - CHANGE THIS IN PRODUCTION!
-    password_hash: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+    password_hash: '$2a$10$DtG2Bk2jtDvK6rYe9byHN.HDOvliZTr1vaqgB6EqNPEJW8B9bX25K'
 
 # GitOps configuration (optional)
 git:
-  enabled: false  # Set to true to enable GitOps
-  repository: "https://github.com/yourorg/dhcp-config.git"
+  enabled: true  # Set to true to enable GitOps
+  repository: "https://github.com/sashakarcz/irondhcp-config.git"
   branch: "main"
   config_path: "dhcp.yaml"
   poll_interval: 60s

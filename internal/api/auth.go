@@ -2,7 +2,6 @@ package api
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/sashakarcz/irondhcp/internal/config"
 	"github.com/sashakarcz/irondhcp/internal/logger"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AuthManager handles authentication
@@ -136,9 +136,9 @@ func (am *AuthManager) ValidateCredentials(username, password string) bool {
 		return true
 	}
 
-	// Hash the provided password and compare
-	hashedPassword := HashPassword(password)
-	return hashedPassword == am.config.PasswordHash
+	// Compare the provided password with the stored hash
+	err := bcrypt.CompareHashAndPassword([]byte(am.config.PasswordHash), []byte(password))
+	return err == nil
 }
 
 // GenerateToken generates a new authentication token
@@ -242,8 +242,8 @@ func (s *Server) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// HashPassword hashes a password using SHA-256
-func HashPassword(password string) string {
-	hash := sha256.Sum256([]byte(password))
-	return fmt.Sprintf("%x", hash)
+// HashPassword hashes a password using bcrypt
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(bytes), err
 }
