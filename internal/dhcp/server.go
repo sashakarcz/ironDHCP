@@ -21,7 +21,7 @@ type Server struct {
 	store       *storage.Store
 	allocator   *Allocator
 	broadcaster Broadcaster
-	server4     *server4.Server
+	servers     []*server4.Server
 	subnets     map[string]*SubnetConfig // subnet CIDR -> config
 	interfaces  []string
 	wg          sync.WaitGroup
@@ -123,23 +123,39 @@ func (s *Server) Start(ctx context.Context) error {
 		Int("subnets", len(s.subnets)).
 		Msg("Starting DHCP server")
 
-	// Create DHCP handler
-	handler := &Handler{
-		server: s,
-	}
-
-	// Create DHCPv4 server
 	laddr := &net.UDPAddr{
 		IP:   net.IPv4zero,
 		Port: dhcpv4.ServerPort,
 	}
 
-	server, err := server4.NewServer("", laddr, handler.Handle)
-	if err != nil {
-		return fmt.Errorf("failed to create DHCP server: %w", err)
-	}
+	if len(s.interfaces) > 0 {
+		for _, ifaceName := range s.interfaces {
+			log := logger.With().Str("interface", ifaceName).Logger()
+			log.Info().Msg("Starting DHCP listener on interface")
 
-	s.server4 = server
+			handler := &Handler{
+				server: s,
+				iface:  ifaceName,
+			}
+
+			server, err := server4.NewServer(ifaceName, laddr, handler.Handle)
+			if err != nil {
+				return fmt.Errorf("failed to create DHCP server for interface %s: %w", ifaceName, err)
+			}
+			s.servers = append(s.servers, server)
+		}
+	} else {
+		logger.Info().Msg("No interfaces configured, listening on all interfaces")
+		handler := &Handler{
+			server: s,
+			iface:  "", // No specific interface
+		}
+		server, err := server4.NewServer("", laddr, handler.Handle)
+		if err != nil {
+			return fmt.Errorf("failed to create DHCP server: %w", err)
+		}
+		s.servers = append(s.servers, server)
+	}
 
 	// Start expiry worker
 	s.wg.Add(1)
@@ -149,14 +165,21 @@ func (s *Server) Start(ctx context.Context) error {
 	s.wg.Add(1)
 	go s.cacheCleanupWorker(ctx)
 
-	// Start server
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		if err := server.Serve(); err != nil {
-			logger.Error().Err(err).Msg("DHCP server stopped with error")
-		}
-	}()
+	// Start servers
+	for _, server := range s.servers {
+		s.wg.Add(1)
+		go func(server *server4.Server) {
+			defer s.wg.Done()
+			if err := server.Serve(); err != nil {
+				// Don't log error on shutdown
+				select {
+				case <-s.shutdown:
+				default:
+					logger.Error().Err(err).Msg("DHCP server stopped with error")
+				}
+			}
+		}(server)
+	}
 
 	logger.Info().Msg("DHCP server started successfully")
 	return nil
@@ -168,8 +191,8 @@ func (s *Server) Stop(ctx context.Context) error {
 
 	close(s.shutdown)
 
-	if s.server4 != nil {
-		if err := s.server4.Close(); err != nil {
+	for _, server := range s.servers {
+		if err := server.Close(); err != nil {
 			logger.Error().Err(err).Msg("Error closing DHCP server")
 		}
 	}
@@ -341,11 +364,12 @@ func (s *Server) cacheCleanupWorker(ctx context.Context) {
 }
 
 // findSubnetForRequest determines which subnet a request belongs to
-func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error) {
+func (s *Server) findSubnetForRequest(ifaceName string, req *dhcpv4.DHCPv4) (*SubnetConfig, error) {
 	logger.Debug().
 		Int("subnet_count", len(s.subnets)).
 		Str("giaddr", req.GatewayIPAddr.String()).
 		Str("ciaddr", req.ClientIPAddr.String()).
+		Str("interface", ifaceName).
 		Msg("Finding subnet for request")
 
 	// Check relay agent IP (GiAddr)
@@ -354,14 +378,7 @@ func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error)
 			Str("giaddr", req.GatewayIPAddr.String()).
 			Msg("Checking relay agent IP against subnets")
 
-		for subnetKey, subnet := range s.subnets {
-			logger.Debug().
-				Str("subnet_key", subnetKey).
-				Str("subnet_network", subnet.Network.String()).
-				Str("giaddr", req.GatewayIPAddr.String()).
-				Bool("contains", subnet.Network.Contains(req.GatewayIPAddr)).
-				Msg("Checking subnet match")
-
+		for _, subnet := range s.subnets {
 			if subnet.Network.Contains(req.GatewayIPAddr) {
 				logger.Debug().
 					Str("subnet", subnet.Network.String()).
@@ -373,18 +390,7 @@ func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error)
 
 	// Check client IP (CiAddr) for renewals
 	if !req.ClientIPAddr.IsUnspecified() {
-		logger.Debug().
-			Str("ciaddr", req.ClientIPAddr.String()).
-			Msg("Checking client IP against subnets")
-
-		for subnetKey, subnet := range s.subnets {
-			logger.Debug().
-				Str("subnet_key", subnetKey).
-				Str("subnet_network", subnet.Network.String()).
-				Str("ciaddr", req.ClientIPAddr.String()).
-				Bool("contains", subnet.Network.Contains(req.ClientIPAddr)).
-				Msg("Checking subnet match")
-
+		for _, subnet := range s.subnets {
 			if subnet.Network.Contains(req.ClientIPAddr) {
 				logger.Debug().
 					Str("subnet", subnet.Network.String()).
@@ -394,13 +400,43 @@ func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error)
 		}
 	}
 
-	// TODO: Check interface IP when we have interface binding
-	// For now, return the first subnet if we only have one configured
+	// Check interface IP if we have interface binding
+	if ifaceName != "" {
+		iface, err := net.InterfaceByName(ifaceName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get interface %s: %w", ifaceName, err)
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get addresses for interface %s: %w", ifaceName, err)
+		}
+
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				ip := ipnet.IP.To4()
+				if ip == nil {
+					continue
+				}
+
+				for _, subnet := range s.subnets {
+					if subnet.Network.Contains(ip) {
+						logger.Debug().
+							Str("subnet", subnet.Network.String()).
+							Str("interface", ifaceName).
+							Msg("Found matching subnet via interface")
+						return subnet, nil
+					}
+				}
+			}
+		}
+	}
+
+	// If only one subnet is configured, use it as a default
 	if len(s.subnets) == 1 {
 		for _, subnet := range s.subnets {
 			logger.Debug().
 				Str("subnet", subnet.Network.String()).
-				Msg("Using single configured subnet")
+				Msg("Using single configured subnet as default")
 			return subnet, nil
 		}
 	}
@@ -409,6 +445,7 @@ func (s *Server) findSubnetForRequest(req *dhcpv4.DHCPv4) (*SubnetConfig, error)
 		Int("subnet_count", len(s.subnets)).
 		Str("giaddr", req.GatewayIPAddr.String()).
 		Str("ciaddr", req.ClientIPAddr.String()).
+		Str("interface", ifaceName).
 		Msg("No matching subnet found")
 
 	return nil, fmt.Errorf("cannot determine subnet for request")

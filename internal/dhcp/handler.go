@@ -14,6 +14,7 @@ import (
 // Handler handles DHCP requests
 type Handler struct {
 	server *Server
+	iface  string
 }
 
 // Handle processes incoming DHCP requests
@@ -28,6 +29,7 @@ func (h *Handler) Handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4)
 		Str("giaddr", req.GatewayIPAddr.String()).
 		Str("ciaddr", req.ClientIPAddr.String()).
 		Str("peer", peer.String()).
+		Str("interface", h.iface).
 		Msg("Received DHCP request")
 
 	// Route to appropriate handler based on message type
@@ -81,7 +83,7 @@ func (h *Handler) Handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4)
 // handleDiscover handles DHCPDISCOVER messages
 func (h *Handler) handleDiscover(ctx context.Context, req *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, error) {
 	// Find subnet for this request
-	subnet, err := h.server.findSubnetForRequest(req)
+	subnet, err := h.server.findSubnetForRequest(h.iface, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find subnet: %w", err)
 	}
@@ -169,7 +171,7 @@ func (h *Handler) handleDiscover(ctx context.Context, req *dhcpv4.DHCPv4) (*dhcp
 // handleRequest handles DHCPREQUEST messages
 func (h *Handler) handleRequest(ctx context.Context, req *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, error) {
 	// Find subnet for this request
-	subnet, err := h.server.findSubnetForRequest(req)
+	subnet, err := h.server.findSubnetForRequest(h.iface, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find subnet: %w", err)
 	}
@@ -302,7 +304,7 @@ func (h *Handler) handleRequest(ctx context.Context, req *dhcpv4.DHCPv4) (*dhcpv
 // handleRelease handles DHCPRELEASE messages
 func (h *Handler) handleRelease(ctx context.Context, req *dhcpv4.DHCPv4) error {
 	// Find subnet for this request
-	subnet, err := h.server.findSubnetForRequest(req)
+	subnet, err := h.server.findSubnetForRequest(h.iface, req)
 	if err != nil {
 		return fmt.Errorf("failed to find subnet: %w", err)
 	}
@@ -336,7 +338,7 @@ func (h *Handler) handleRelease(ctx context.Context, req *dhcpv4.DHCPv4) error {
 // handleDecline handles DHCPDECLINE messages (IP conflict detected)
 func (h *Handler) handleDecline(ctx context.Context, req *dhcpv4.DHCPv4) error {
 	// Find subnet for this request
-	subnet, err := h.server.findSubnetForRequest(req)
+	subnet, err := h.server.findSubnetForRequest(h.iface, req)
 	if err != nil {
 		return fmt.Errorf("failed to find subnet: %w", err)
 	}
@@ -376,7 +378,7 @@ func (h *Handler) handleDecline(ctx context.Context, req *dhcpv4.DHCPv4) error {
 // handleInform handles DHCPINFORM messages
 func (h *Handler) handleInform(ctx context.Context, req *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, error) {
 	// Find subnet for this request
-	subnet, err := h.server.findSubnetForRequest(req)
+	subnet, err := h.server.findSubnetForRequest(h.iface, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find subnet: %w", err)
 	}
